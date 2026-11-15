@@ -3,5 +3,5 @@
         <item name="android:windowBackground">@color/app_bg</item>
         <item name="android:colorAccent">#0A84FF</item>
     </style>
-    <color name="app_bg">#000000</color>
+    <color name="app_bg">#0B0B0D</color>
 </resources>
