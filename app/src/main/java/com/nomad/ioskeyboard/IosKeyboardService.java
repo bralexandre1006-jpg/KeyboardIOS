@@ -133,6 +133,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         keyboard.capsLockEnabled = Prefs.bool(this, Prefs.CAPS_LOCK);
         keyboard.swipeEnabled = Prefs.bool(this, Prefs.SWIPE) && suggest;
         keyboard.showSuggestionBar = true;
+        keyboard.showMic = Prefs.bool(this, Prefs.DICTATION) && variant == Layouts.VAR_TEXT && !numeric;
         boolean bar = Prefs.bool(this, Prefs.BOTTOM_BAR);
         if (bar != keyboard.showBottomBar) { keyboard.showBottomBar = bar; keyboard.requestLayout(); }
         keyboard.configure(Prefs.str(this, Prefs.LAYOUT), variant, label, blue, langLabel);
@@ -232,6 +233,15 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         return c == '.' || c == '!' || c == '?' || c == '\n' || c == '…';
     }
 
+    private boolean sentenceStartBefore(int wordLen) {
+        String b = before(64);
+        if (b.length() < wordLen) return true;
+        b = b.substring(0, b.length() - wordLen).trim();
+        if (b.isEmpty()) return true;
+        char c = b.charAt(b.length() - 1);
+        return c == '.' || c == '!' || c == '?' || c == '…';
+    }
+
     private void updateShift() {
         if (keyboard == null || searching) return;
         if (keyboard.mode != Layouts.LETTERS) return;
@@ -286,11 +296,12 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         sugValues[0] = word;
         int hl = -1;
         int slot = 1;
+        boolean properNoun = Character.isUpperCase(word.charAt(0)) && !sentenceStartBefore(word.length());
         if (corr != null && !corr.equalsIgnoreCase(word)) {
-            pendingCorrection = matchCase(word, corr);
-            sugValues[1] = pendingCorrection;
-            hl = 1;
+            String c = matchCase(word, corr);
+            sugValues[1] = c;
             slot = 2;
+            if (dict.lastConfident && !properNoun) { pendingCorrection = c; hl = 1; }
         }
         for (String c : comp) {
             if (slot > 2) break;
@@ -565,6 +576,23 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     @Override
     public void onModeChanged() {
         if (keyboard.mode == Layouts.LETTERS) updateShift();
+    }
+
+    // ---------- Quick settings ----------
+
+    @Override
+    public void onQuickToggle(String key) {
+        Prefs.get(this).edit().putBoolean(key, !Prefs.bool(this, key)).apply();
+        EditorInfo info = getCurrentInputEditorInfo();
+        if (info != null) onStartInputView(info, true);
+        keyboard.invalidate();
+    }
+
+    @Override
+    public void onOpenSettings() {
+        Intent i = new Intent(this, SettingsActivity.class);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(i);
     }
 
     // ---------- Emoji search ----------

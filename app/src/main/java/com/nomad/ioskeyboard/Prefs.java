@@ -6,14 +6,14 @@ import android.content.SharedPreferences;
 final class Prefs {
     static final String SOUND = "sound", HAPTIC = "haptic", AUTOCAP = "autocap", AUTOCORRECT = "autocorrect",
             PREDICT = "predict", DOUBLE_SPACE = "double_space", CAPS_LOCK = "caps_lock", SWIPE = "swipe",
-            LAYOUT = "layout", LANG = "lang", THEME = "theme", BOTTOM_BAR = "bottom_bar";
+            LAYOUT = "layout", LANG = "lang", THEME = "theme", BOTTOM_BAR = "bottom_bar", DICTATION = "dictation";
 
     static SharedPreferences get(Context c) {
         return c.getSharedPreferences("settings", Context.MODE_PRIVATE);
     }
 
     static boolean bool(Context c, String k) {
-        return get(c).getBoolean(k, !BOTTOM_BAR.equals(k));
+        return get(c).getBoolean(k, !BOTTOM_BAR.equals(k) && !DICTATION.equals(k));
     }
 
     static String str(Context c, String k) {

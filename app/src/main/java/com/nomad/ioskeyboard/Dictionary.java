@@ -31,6 +31,9 @@ class Dictionary {
     private boolean dirty;
     private final float[][] dpBuf = new float[32][32];
     volatile boolean ready;
+    boolean lastConfident;
+    private byte[] bloom;
+    private int bloomM, bloomK;
 
     Dictionary(Context c) {
         ctx = c == null ? null : c.getApplicationContext();
@@ -67,6 +70,7 @@ class Dictionary {
             }
         }
         words = w; keys = k; freq = f; sorted = s;
+        loadBloom();
         buildKeyPos(layout);
         loadUser();
         ready = true;
@@ -87,6 +91,34 @@ class Dictionary {
                 if (old == null || old < score) out.put(word, score);
             }
         } catch (Exception ignored) { }
+    }
+
+    private void loadBloom() {
+        if (bloom != null) return;
+        try (java.io.DataInputStream in = new java.io.DataInputStream(new java.io.BufferedInputStream(open("lexicon.bloom")))) {
+            int m = in.readInt(), k = in.readInt();
+            byte[] b = new byte[m / 8];
+            in.readFully(b);
+            bloomM = m; bloomK = k; bloom = b;
+        } catch (Exception ignored) { }
+    }
+
+    private static long fnv(byte[] s, long seed) {
+        long h = 0xcbf29ce484222325L ^ seed;
+        for (byte b : s) { h ^= (b & 0xff); h *= 0x100000001b3L; }
+        return h;
+    }
+
+    boolean inLexicon(String lw) {
+        byte[] b = bloom;
+        if (b == null) return false;
+        byte[] s = lw.getBytes(StandardCharsets.UTF_8);
+        long h1 = fnv(s, 0), h2 = fnv(s, 0x9E3779B97F4A7C15L) | 1;
+        for (int i = 0; i < bloomK; i++) {
+            long idx = Long.remainderUnsigned(h1 + i * h2, bloomM);
+            if ((b[(int) (idx >>> 3)] & (1 << (idx & 7))) == 0) return false;
+        }
+        return true;
     }
 
     java.io.InputStream open(String asset) throws java.io.IOException {
@@ -129,7 +161,7 @@ class Dictionary {
 
     boolean isValid(String w) {
         String l = w.toLowerCase().replace('’', '\'');
-        return exact.containsKey(l) || userWords.containsKey(l);
+        return exact.containsKey(l) || userWords.containsKey(l) || inLexicon(l);
     }
 
     List<String> complete(String prefix, int n) {
@@ -171,6 +203,7 @@ class Dictionary {
 
     /** Returns a correction for an unknown word, or null. */
     String correct(String word) {
+        lastConfident = true;
         if (!ready || word.length() < 2) return null;
         for (int i = 0; i < word.length(); i++) if (Character.isDigit(word.charAt(i))) return null;
         String k = norm(word);
@@ -178,6 +211,7 @@ class Dictionary {
         Integer direct = byKey.get(k);
         Integer self = exact.get(lw);
         if (direct != null && !words[direct].equals(lw) && !userWords.containsKey(lw)
+                && (!inLexicon(lw) || (self == null && freq[direct] > 0.5f))
                 && (self == null || freq[direct] > freq[self] + 0.04f)) return words[direct];
         int apo = Math.max(word.lastIndexOf('\''), word.lastIndexOf('’'));
         if (apo > 0 && apo < word.length() - 1) {
@@ -205,7 +239,10 @@ class Dictionary {
                 if (sc < bestScore) { bestScore = sc; best = idx; }
             }
         }
-        return best < 0 ? null : words[best];
+        if (best < 0) return null;
+        float bd = distance(k, keys[best], max);
+        lastConfident = len >= 3 && (bd <= 0.6f || (bd <= 1.05f && len >= 4 && freq[best] >= 0.4f) || (bd <= 1.6f && len >= 7 && freq[best] >= 0.45f));
+        return words[best];
     }
 
     private String elide(String lw) {

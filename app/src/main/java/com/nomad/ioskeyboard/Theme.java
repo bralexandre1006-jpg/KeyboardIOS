@@ -10,11 +10,11 @@ final class Theme {
     private Theme(boolean d) {
         dark = d;
         if (d) {
-            bg = 0xFF2B2B2D; key = 0xFF6B6B6D; special = 0xFF464648; text = 0xFFFFFFFF; shadow = 0xFF0E0E0F;
-            preview = 0xFF6B6B6D; accent = 0xFF0A84FF; accentText = 0xFFFFFFFF; divider = 0xFF4A4A4C;
+            bg = 0xFF2B2B2B; key = 0xFF6B6B6B; special = 0xFF464646; text = 0xFFFFFFFF; shadow = 0xFF171717;
+            preview = 0xFF6B6B6B; accent = 0xFF0A84FF; accentText = 0xFFFFFFFF; divider = 0xFF4A4A4C;
             highlight = 0xFF5A5A5C; subText = 0xFF9A9A9E; trail = 0x99FFFFFF; shiftOn = 0xFFFFFFFF; shiftOnText = 0xFF000000;
         } else {
-            bg = 0xFFD1D3D9; key = 0xFFFFFFFF; special = 0xFFABB0BA; text = 0xFF000000; shadow = 0xFF898A8D;
+            bg = 0xFFD1D4D9; key = 0xFFFFFFFF; special = 0xFFABB1BA; text = 0xFF000000; shadow = 0xFF898A8D;
             preview = 0xFFFFFFFF; accent = 0xFF007AFF; accentText = 0xFFFFFFFF; divider = 0xFFB4B7BD;
             highlight = 0xFFEBECEF; subText = 0xFF6E7076; trail = 0x88505A6A; shiftOn = 0xFFFFFFFF; shiftOnText = 0xFF000000;
         }

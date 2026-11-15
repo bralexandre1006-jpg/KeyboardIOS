@@ -74,6 +74,11 @@ public class SettingsActivity extends Activity {
         toggle("Raccourci « . » (double espace)", Prefs.DOUBLE_SPACE);
         toggle("Verrouillage des majuscules", Prefs.CAPS_LOCK);
         toggle("Balayer pour écrire", Prefs.SWIPE);
+        toggle("Dictée (touche micro)", Prefs.DICTATION);
+
+        TextView tip = new TextView(this);
+        tip.setText("Astuce : appui long sur la touche emoji du clavier pour les réglages rapides.");
+        box.addView(tip);
 
         header("Retour");
         toggle("Son des touches", Prefs.SOUND);

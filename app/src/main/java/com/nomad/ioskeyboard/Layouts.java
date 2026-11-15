@@ -43,7 +43,7 @@ final class Layouts {
         ALTS.put(k, v.split(" "));
     }
 
-    static List<List<Key>> build(int mode, String layout, int variant, String returnLabel) {
+    static List<List<Key>> build(int mode, String layout, int variant, String returnLabel, boolean mic) {
         List<List<Key>> rows = new ArrayList<>();
         boolean qwerty = "qwerty".equals(layout);
         if (mode == LETTERS) {
@@ -80,6 +80,9 @@ final class Layouts {
             r4.add(chr(".", 1.4f));
             r4.add(chr("/", 1.4f));
             r4.add(chr(".com", 2.2f));
+        } else if (mic) {
+            r4.add(new Key(Key.MIC, "", "", 1.25f));
+            r4.add(new Key(Key.SPACE, "espace", " ", 3.75f));
         } else {
             r4.add(new Key(Key.SPACE, "espace", " ", 5f));
         }
