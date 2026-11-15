@@ -105,6 +105,37 @@ public class KeyboardView extends View {
             {"Prédictions", Prefs.PREDICT}, {"Balayer pour écrire", Prefs.SWIPE},
             {"Vibrations", Prefs.HAPTIC}, {"Son des touches", Prefs.SOUND}};
 
+    private float popupAnim = 1f, previewAnim = 1f, selPos, popupOriginX;
+    private android.animation.ValueAnimator popupAnimator, selAnimator, previewAnimator;
+
+    private void animatePopupIn() {
+        if (popupAnimator != null) popupAnimator.cancel();
+        popupAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        popupAnimator.setDuration(160);
+        popupAnimator.setInterpolator(new android.view.animation.OvershootInterpolator(1.6f));
+        popupAnimator.addUpdateListener(a -> { popupAnim = (float) a.getAnimatedValue(); invalidate(); });
+        popupAnimator.start();
+    }
+
+    private void animateSel(int target) {
+        int pos = popupLeft ? popupAlts.length - 1 - target : target;
+        if (selAnimator != null) selAnimator.cancel();
+        selAnimator = android.animation.ValueAnimator.ofFloat(selPos, pos);
+        selAnimator.setDuration(90);
+        selAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        selAnimator.addUpdateListener(a -> { selPos = (float) a.getAnimatedValue(); invalidate(); });
+        selAnimator.start();
+    }
+
+    private void animatePreviewIn() {
+        if (previewAnimator != null) previewAnimator.cancel();
+        previewAnimator = android.animation.ValueAnimator.ofFloat(0.82f, 1f);
+        previewAnimator.setDuration(70);
+        previewAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        previewAnimator.addUpdateListener(a -> { previewAnim = (float) a.getAnimatedValue(); invalidate(); });
+        previewAnimator.start();
+    }
+
     private boolean voiceActive;
     private float voiceLevel;
 
@@ -508,6 +539,8 @@ public class KeyboardView extends View {
         float top = Math.max(0, bottom - bh);
         tmp.set(l, top, l + bw, bottom);
         RectF bubble = new RectF(tmp);
+        c.save();
+        c.scale(previewAnim, previewAnim, r.centerX(), r.bottom);
         drawBubble(c, r, bubble);
         String label = k.label;
         if (mode == Layouts.LETTERS && shift != SHIFT_OFF && k.isLetter()) label = label.toUpperCase();
@@ -515,6 +548,7 @@ public class KeyboardView extends View {
         text.setTextSize(label.length() > 1 ? unit * 0.5f : unit * 0.9f);
         text.setColor(theme.text);
         c.drawText(label, bubble.centerX(), bubble.centerY() - (text.descent() + text.ascent()) / 2, text);
+        c.restore();
     }
 
     private void drawPopup(Canvas c) {
@@ -528,19 +562,26 @@ public class KeyboardView extends View {
         float bottom = r.top - 8 * d;
         float top = Math.max(0, bottom - ph);
         popupRect.set(l, top, l + pw, bottom);
+        c.save();
+        float sc = 0.55f + 0.45f * popupAnim;
+        c.scale(sc, sc, r.centerX(), r.top);
         drawBubble(c, r, popupRect);
+        RectF first = popupCell(popupLeft ? n - 1 : 0, cw, pad);
+        float hl = first.left + selPos * cw;
+        fill.setColor(theme.accent);
+        tmp.set(hl + 1.5f * d, first.top + 1.5f * d, hl + cw - 1.5f * d, first.bottom - 1.5f * d);
+        c.drawRoundRect(tmp, radius, radius, fill);
+        text.setTypeface(face);
         for (int i = 0; i < n; i++) {
             RectF cell = popupCell(i, cw, pad);
-            if (i == popupSel) {
-                fill.setColor(theme.accent);
-                c.drawRoundRect(cell, radius, radius, fill);
-            }
             String s = popupAlts[i];
             if (mode == Layouts.LETTERS && shift != SHIFT_OFF) s = s.toUpperCase();
-            text.setTextSize(s.length() > 1 ? 16 * d : 26 * d);
-            text.setColor(i == popupSel ? theme.accentText : theme.text);
+            text.setTextSize(s.length() > 1 ? unit * 0.42f : unit * 0.66f);
+            boolean selected = Math.abs((popupLeft ? n - 1 - i : i) - selPos) < 0.5f;
+            text.setColor(selected ? theme.accentText : theme.text);
             c.drawText(s, cell.centerX(), cell.centerY() - (text.descent() + text.ascent()) / 2, text);
         }
+        c.restore();
     }
 
     private RectF popupCell(int i, float cw, float pad) {
@@ -731,8 +772,11 @@ public class KeyboardView extends View {
             startTrackpad();
         } else if (pKey.alts != null) {
             popupAlts = pKey.alts;
-            popupSel = 0;
+            popupSel = popupAlts.length > 1 ? 1 : 0;
             popupLeft = pKey.rect.centerX() > getWidth() / 2f;
+            selPos = popupLeft ? popupAlts.length - 1 - popupSel : popupSel;
+            popupOriginX = pX;
+            animatePopupIn();
             pState = ST_POPUP;
             previewKey = null;
             feedback.tick();
@@ -860,6 +904,7 @@ public class KeyboardView extends View {
             case Key.CHAR:
                 pState = ST_PRESS;
                 previewKey = k.label.length() <= 2 ? k : null;
+                if (previewKey != null) animatePreviewIn();
                 if (k.alts != null) handler.postDelayed(longPress, 380);
                 break;
             case Key.SHIFT:
@@ -951,7 +996,9 @@ public class KeyboardView extends View {
                 int pos = (int) Math.floor((x - popupRect.left - pad) / cw);
                 pos = Math.max(0, Math.min(popupAlts.length - 1, pos));
                 int sel = popupLeft ? popupAlts.length - 1 - pos : pos;
-                if (sel != popupSel) { popupSel = sel; invalidate(); }
+                if (Math.abs(x - popupOriginX) < cw * 0.45f) break;
+                popupOriginX = -10000;
+                if (sel != popupSel) { popupSel = sel; animateSel(sel); feedback.tick(); }
                 break;
             }
             case ST_TRACKPAD: {

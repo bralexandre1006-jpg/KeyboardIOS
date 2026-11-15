@@ -32,6 +32,22 @@ class Dictionary {
     private final float[][] dpBuf = new float[32][32];
     volatile boolean ready;
     boolean lastConfident;
+    private static final Set<String> SLANG = new HashSet<>(Arrays.asList(
+            "slt", "stp", "svp", "mrc", "jsp", "tkt", "lol", "mdr", "ptdr", "xptdr", "wesh", "wsh", "dac", "ok", "oki",
+            "okay", "cv", "pk", "pq", "pcq", "bjr", "bsr", "tjr", "tjrs", "vrmt", "jsuis", "chui", "jvais", "jpp", "osef",
+            "bg", "frr", "nn", "ouais", "ouai", "bah", "bref", "jpense", "jcrois", "jte", "jtm", "tqt", "deso", "dsl",
+            "bcp", "pr", "ds", "qd", "qqn", "qqch", "rdv", "mtn", "auj", "ajd", "tt", "ts", "jsais", "ptn", "oklm", "askip",
+            "wtf", "omg", "btw", "idk", "thx", "pls", "plz", "lmao", "brb", "imo", "xd", "hihi", "haha", "hahaha", "ahah",
+            "ahahah", "mdrr", "mdrrr", "ah", "oh", "eh", "hein", "bon", "ben", "gg", "wsh", "zebi", "starfoullah", "inchallah"));
+    private static final Map<String, String> PHRASES = new HashMap<>();
+    static {
+        String[] p = {"parceque", "parce que", "quelquechose", "quelque chose", "biensur", "bien sûr", "cava", "ça va",
+                "peutetre", "peut-être", "toutafait", "tout à fait", "tantpis", "tant pis", "atout", "à tout",
+                "apluss", "à plus", "aplus", "à plus", "ademain", "à demain", "bonnenuit", "bonne nuit", "jtaime", "je t'aime",
+                "jtm", "jtm", "audela", "au-delà", "cestca", "c'est ça", "ya", "y a", "ptetre", "peut-être", "aujourdui", "aujourd'hui",
+                "aujourdhui", "aujourd'hui", "quoique", "quoique", "dailleurs", "d'ailleurs", "cad", "c.-à-d.", "sil", "s'il"};
+        for (int i = 0; i < p.length; i += 2) PHRASES.put(p[i], p[i + 1]);
+    }
     private byte[] bloom;
     private int bloomM, bloomK;
 
@@ -161,7 +177,7 @@ class Dictionary {
 
     boolean isValid(String w) {
         String l = w.toLowerCase().replace('’', '\'');
-        return exact.containsKey(l) || userWords.containsKey(l) || inLexicon(l);
+        return SLANG.contains(l) || exact.containsKey(l) || userWords.containsKey(l) || inLexicon(l);
     }
 
     List<String> complete(String prefix, int n) {
@@ -208,11 +224,13 @@ class Dictionary {
         for (int i = 0; i < word.length(); i++) if (Character.isDigit(word.charAt(i))) return null;
         String k = norm(word);
         String lw = word.toLowerCase().replace('’', '\'');
+        if (SLANG.contains(lw) || userWords.containsKey(lw)) return null;
+        String phrase = PHRASES.get(k);
+        if (phrase != null && !phrase.equals(lw)) return phrase;
         Integer direct = byKey.get(k);
         Integer self = exact.get(lw);
-        if (direct != null && !words[direct].equals(lw) && !userWords.containsKey(lw)
-                && (!inLexicon(lw) || (self == null && freq[direct] > 0.5f))
-                && (self == null || freq[direct] > freq[self] + 0.04f)) return words[direct];
+        if (direct != null && !words[direct].equals(lw)
+                && (self == null ? (!inLexicon(lw) || freq[direct] > 0.5f) : freq[direct] > freq[self] + 0.1f)) return words[direct];
         int apo = Math.max(word.lastIndexOf('\''), word.lastIndexOf('’'));
         if (apo > 0 && apo < word.length() - 1) {
             if (isValid(word)) return null;
@@ -222,6 +240,8 @@ class Dictionary {
         if (isValid(word)) return null;
         String el = elide(lw);
         if (el != null) return el;
+        boolean vowel = false;
+        for (int i = 0; i < k.length(); i++) if ("aeiouy".indexOf(k.charAt(i)) >= 0) vowel = true;
         int len = k.length();
         float max = len <= 2 ? 0.7f : len <= 4 ? 1.05f : len <= 7 ? 1.6f : 2.1f;
         char first = k.charAt(0);
@@ -235,14 +255,29 @@ class Dictionary {
                 if (Math.abs(cand.length() - len) > 1 + (len > 6 ? 1 : 0)) continue;
                 float dist = distance(k, cand, max);
                 if (dist > max) continue;
-                float sc = dist - freq[idx] * 0.9f;
+                float sc = dist - freq[idx] * 1.2f;
                 if (sc < bestScore) { bestScore = sc; best = idx; }
             }
         }
-        if (best < 0) return null;
+        String split = split(lw);
+        if (best < 0) { if (split != null) lastConfident = true; return split; }
         float bd = distance(k, keys[best], max);
-        lastConfident = len >= 3 && (bd <= 0.6f || (bd <= 1.05f && len >= 4 && freq[best] >= 0.4f) || (bd <= 1.6f && len >= 7 && freq[best] >= 0.45f));
+        lastConfident = vowel && len >= 4 && (bd <= 0.6f || (bd <= 1.05f && len >= 4 && freq[best] >= 0.4f) || (bd <= 1.6f && len >= 7 && freq[best] >= 0.45f));
+        if (!lastConfident && split != null) { lastConfident = true; return split; }
         return words[best];
+    }
+
+    private String split(String lw) {
+        if (lw.length() < 6) return null;
+        String best = null;
+        float bestF = 0;
+        for (int i = 2; i <= lw.length() - 2; i++) {
+            Integer a = exact.get(lw.substring(0, i)), b = byKey.get(norm(lw.substring(i)));
+            if (a == null || b == null) continue;
+            float f = Math.min(freq[a], freq[b]);
+            if (f > 0.62f && f > bestF) { bestF = f; best = words[a] + " " + words[b]; }
+        }
+        return best;
     }
 
     private String elide(String lw) {
@@ -278,7 +313,8 @@ class Dictionary {
                 char cb = b.charAt(j - 1);
                 float sub = dp[i - 1][j - 1] + adjacency(ca, cb);
                 float del = dp[i - 1][j] + (i > 1 && a.charAt(i - 2) == ca ? 0.45f : 1f);
-                float ins = dp[i][j - 1] + (j > 1 && b.charAt(j - 2) == cb ? 0.45f : 1f);
+                float ins = dp[i][j - 1] + (j > 1 && b.charAt(j - 2) == cb ? 0.45f
+                        : (i == n && j == m && "stex".indexOf(cb) >= 0) ? 0.5f : "aeiou".indexOf(cb) >= 0 ? 0.75f : 1f);
                 float v = Math.min(sub, Math.min(del, ins));
                 if (i > 1 && j > 1 && ca == b.charAt(j - 2) && a.charAt(i - 2) == cb) v = Math.min(v, dp[i - 2][j - 2] + 0.6f);
                 dp[i][j] = v;

@@ -148,7 +148,7 @@ public class EmojiView extends View {
 
     @Override
     protected void onMeasure(int w, int h) {
-        setMeasuredDimension(MeasureSpec.getSize(w), targetHeight > 0 ? targetHeight : (int) (300 * d));
+        setMeasuredDimension(MeasureSpec.getSize(w), targetHeight > 0 ? targetHeight + (int) (28 * d) : (int) (330 * d));
     }
 
     @Override
@@ -172,14 +172,14 @@ public class EmojiView extends View {
         boolean land = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
         side = 6 * d;
         bottomH = land || !Prefs.bool(getContext(), Prefs.BOTTOM_BAR) ? 0 : 50 * d;
-        barH = 42 * d;
-        searchH = 44 * d;
-        titleH = searchH + 26 * d;
+        barH = 46 * d;
+        searchH = 42 * d;
+        titleH = searchH + 22 * d;
         bottomTop = h - bottomH;
         barTop = bottomTop - barH;
         gridTop = titleH;
         cellH = (barTop - gridTop - 2 * d) / ROWS;
-        cellW = (w - 2 * side) / (land ? 14f : 8.4f);
+        cellW = (w - 2 * side) / (land ? 13f : 7.6f);
         catStart = new float[catCount()];
         float x = 0;
         for (int i = 0; i < catCount(); i++) {
@@ -232,7 +232,7 @@ public class EmojiView extends View {
         c.drawText("Rechercher un emoji", side + 36 * d, sy - (text.descent() + text.ascent()) / 2, text);
         text.setTextAlign(Paint.Align.CENTER);
 
-        float size = Math.min(cellW, cellH) * 0.74f;
+        float size = Math.min(cellW, cellH) * 0.84f;
         emoji.setTextSize(size);
         float off = -(emoji.descent() + emoji.ascent()) / 2;
         c.save();
@@ -273,14 +273,14 @@ public class EmojiView extends View {
         c.drawText("ABC", side + abcW / 2, cy - (text.descent() + text.ascent()) / 2, text);
         float l = side + abcW, r = getWidth() - side - delW;
         float slot = (r - l) / catCount();
-        grey.setTextSize(17 * d);
-        emoji.setTextSize(17 * d);
+        grey.setTextSize(20 * d);
+        emoji.setTextSize(20 * d);
         float off = -(grey.descent() + grey.ascent()) / 2;
         for (int i = 0; i < catCount(); i++) {
             float cx = l + slot * (i + 0.5f);
             if (i == cur) {
                 fill.setColor(t.special);
-                c.drawCircle(cx, cy, 15 * d, fill);
+                c.drawCircle(cx, cy, 17 * d, fill);
             }
             grey.setAlpha(i == cur ? 255 : 150);
             c.drawText(catIcon(i), cx, cy + off, grey);
@@ -332,7 +332,7 @@ public class EmojiView extends View {
     }
 
     private void drawTonePopup(Canvas c) {
-        float cw = cellW * 1.05f, pad = 6 * d;
+        float cw = cellW * 1.1f, pad = 6 * d;
         float w = tonePopup.length * cw + 2 * pad, h = cellH * 1.1f + 2 * pad;
         float l = Math.max(4 * d, Math.min(getWidth() - 4 * d - w, pressedCx - w / 2));
         float top = Math.max(2 * d, pressedCy - cellH / 2 - h - 4 * d);
@@ -474,7 +474,7 @@ public class EmojiView extends View {
 
     private void move(float x, float y) {
         if (tonePopup != null) {
-            float cw = cellW * 1.05f, pad = 6 * d;
+            float cw = cellW * 1.1f, pad = 6 * d;
             int s = (int) Math.floor((x - toneRect.left - pad) / cw);
             s = Math.max(0, Math.min(tonePopup.length - 1, s));
             if (s != toneSel) { toneSel = s; invalidate(); }
