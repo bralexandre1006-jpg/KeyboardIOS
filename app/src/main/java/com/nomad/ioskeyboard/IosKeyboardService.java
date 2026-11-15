@@ -44,6 +44,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     private final String[] sugValues = {"", "", ""};
     private String pendingCorrection;
     private int emojiSlot = -1;
+    private final List<PointF> touches = new ArrayList<>();
     private boolean searching, swipeBeforeSearch;
     private final StringBuilder query = new StringBuilder();
     private List<String> results = new ArrayList<>();
@@ -291,7 +292,10 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             keyboard.setSuggestions(show, -1);
             return;
         }
+        if (word.length() != touches.size()) touches.clear();
+        dict.setTouches(touches.isEmpty() ? null : touches, touches.isEmpty() ? null : keyboard.letterCenters(), keyboard.keyWidth());
         String corr = autocorrect ? dict.correct(word) : null;
+        dict.setTouches(null, null, 0);
         List<String> comp = dict.complete(word, 3);
         sugValues[0] = word;
         int hl = -1;
@@ -362,6 +366,8 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             ic.commitText(" ", 1);
         }
         gestureWord = null;
+        if (s.length() == 1 && Character.isLetter(s.charAt(0)) && keyboard.mode == Layouts.LETTERS) touches.add(new PointF(keyboard.lastTapX, keyboard.lastTapY));
+        else touches.clear();
         ic.commitText(s, 1);
         ic.endBatchEdit();
         autoSpaced = false;
@@ -396,6 +402,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         ic.endBatchEdit();
         gestureWord = null;
         autoSpaced = false;
+        touches.clear();
         if (keyboard.mode != Layouts.LETTERS) keyboard.setMode(Layouts.LETTERS);
         afterEdit();
     }
@@ -432,6 +439,8 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             return;
         }
         revertOriginal = null;
+        if (word) touches.clear();
+        else if (!touches.isEmpty()) touches.remove(touches.size() - 1);
         int n;
         if (word) {
             int i = b.length();
@@ -536,6 +545,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             ic.commitText(prefix + s + " ", 1);
             dict.learn(previousWord(b + "x"), s);
         }
+        touches.clear();
         ic.endBatchEdit();
         revertOriginal = null;
         autoSpaced = true;
@@ -558,6 +568,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         ic.commitText((needSpace ? " " : "") + w, 1);
         ic.endBatchEdit();
         dict.learn(previousWord(before(64)), w);
+        touches.clear();
         gestureWord = w;
         gestureAlts = new ArrayList<>();
         for (String a : words) gestureAlts.add(shiftCase(a));

@@ -1061,6 +1061,7 @@ public class KeyboardView extends View {
                 if (popupSel >= 0) {
                     String s = popupAlts[popupSel];
                     if (mode == Layouts.LETTERS && shift != SHIFT_OFF) s = s.toUpperCase();
+                    lastTapX = pKey.rect.centerX(); lastTapY = pKey.rect.centerY();
                     commitText(s);
                 }
                 break;
@@ -1108,7 +1109,11 @@ public class KeyboardView extends View {
         invalidate();
     }
 
+    float lastTapX, lastTapY;
+
     private void fire(Key k) {
+        if (pKey == k && pId != -1) { lastTapX = pX; lastTapY = pY; }
+        else { lastTapX = k.rect.centerX(); lastTapY = k.rect.centerY(); }
         String s = k.text;
         if (mode == Layouts.LETTERS && shift != SHIFT_OFF && k.isLetter()) s = s.toUpperCase();
         commitText(s);

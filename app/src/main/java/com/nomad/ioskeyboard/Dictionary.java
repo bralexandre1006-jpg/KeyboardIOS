@@ -32,6 +32,14 @@ class Dictionary {
     private final float[][] dpBuf = new float[32][32];
     volatile boolean ready;
     boolean lastConfident;
+    private List<PointF> touches;
+    private Map<Character, PointF> touchCenters;
+    private float touchKeyW;
+    private boolean useTouches;
+
+    void setTouches(List<PointF> t, Map<Character, PointF> centers, float keyW) {
+        touches = t; touchCenters = centers; touchKeyW = keyW;
+    }
     private static final Set<String> SLANG = new HashSet<>(Arrays.asList(
             "slt", "stp", "svp", "mrc", "jsp", "tkt", "lol", "mdr", "ptdr", "xptdr", "wesh", "wsh", "dac", "ok", "oki",
             "okay", "cv", "pk", "pq", "pcq", "bjr", "bsr", "tjr", "tjrs", "vrmt", "jsuis", "chui", "jvais", "jpp", "osef",
@@ -242,6 +250,7 @@ class Dictionary {
         if (el != null) return el;
         boolean vowel = false;
         for (int i = 0; i < k.length(); i++) if ("aeiouy".indexOf(k.charAt(i)) >= 0) vowel = true;
+        useTouches = touches != null && touchCenters != null && !touchCenters.isEmpty() && touches.size() == k.length() && touchKeyW > 0;
         int len = k.length();
         float max = len <= 2 ? 0.7f : len <= 4 ? 1.05f : len <= 7 ? 1.6f : 2.1f;
         char first = k.charAt(0);
@@ -292,6 +301,14 @@ class Dictionary {
         return null;
     }
 
+    private float touchCost(int i, char typed, char cand) {
+        if (typed == cand) return 0;
+        PointF c = touchCenters.get(cand), t = touches.get(i);
+        if (c == null) return adjacency(typed, cand);
+        float dist = (float) Math.hypot(t.x - c.x, (t.y - c.y) * 0.8f) / touchKeyW;
+        return Math.max(0.15f, Math.min(1f, 0.6f * dist - 0.05f));
+    }
+
     private float adjacency(char a, char b) {
         if (a == b) return 0;
         float[] pa = keyPos.get(a), pb = keyPos.get(b);
@@ -311,7 +328,7 @@ class Dictionary {
             char ca = a.charAt(i - 1);
             for (int j = 1; j <= m; j++) {
                 char cb = b.charAt(j - 1);
-                float sub = dp[i - 1][j - 1] + adjacency(ca, cb);
+                float sub = dp[i - 1][j - 1] + (useTouches ? touchCost(i - 1, ca, cb) : adjacency(ca, cb));
                 float del = dp[i - 1][j] + (i > 1 && a.charAt(i - 2) == ca ? 0.45f : 1f);
                 float ins = dp[i][j - 1] + (j > 1 && b.charAt(j - 2) == cb ? 0.45f
                         : (i == n && j == m && "stex".indexOf(cb) >= 0) ? 0.5f : "aeiou".indexOf(cb) >= 0 ? 0.75f : 1f);
