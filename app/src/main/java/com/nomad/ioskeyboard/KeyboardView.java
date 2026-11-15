@@ -55,6 +55,7 @@ public class KeyboardView extends View {
     private boolean returnAction;
     private String langLabel = "";
     int shift = SHIFT_OFF;
+    boolean showBottomBar = false;
     boolean capsLockEnabled = true, swipeEnabled = true, showSuggestionBar = true;
 
     private final String[] suggestions = {"", "", ""};
@@ -201,7 +202,7 @@ public class KeyboardView extends View {
         gapV = (land ? 7 : 11) * d;
         gapH = 6 * d;
         sidePad = 3 * d;
-        bottomH = (land ? 6 : 50) * d;
+        bottomH = (showBottomBar && !land ? 50 : 4) * d;
         radius = 7 * d;
         keysTop = sugH + 2 * d;
     }
@@ -733,6 +734,7 @@ public class KeyboardView extends View {
             return;
         }
         if (y > keysBottom()) {
+            if (!showBottomBar) { pId = -1; return; }
             pState = ST_BOTTOM;
             pressedBottom = x < getWidth() / 2f ? 1 : 2;
             feedback.key(Key.MODE_NUM);

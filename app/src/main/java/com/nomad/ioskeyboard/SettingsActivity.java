@@ -79,6 +79,9 @@ public class SettingsActivity extends Activity {
         toggle("Son des touches", Prefs.SOUND);
         toggle("Retour haptique", Prefs.HAPTIC);
 
+        header("Barre du bas");
+        toggle("Afficher le globe et le micro", Prefs.BOTTOM_BAR);
+
         header("Disposition");
         radio(Prefs.LAYOUT, new String[]{"azerty", "qwerty"}, new String[]{"AZERTY", "QWERTY"});
         header("Langues");

@@ -133,6 +133,8 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         keyboard.capsLockEnabled = Prefs.bool(this, Prefs.CAPS_LOCK);
         keyboard.swipeEnabled = Prefs.bool(this, Prefs.SWIPE) && suggest;
         keyboard.showSuggestionBar = true;
+        boolean bar = Prefs.bool(this, Prefs.BOTTOM_BAR);
+        if (bar != keyboard.showBottomBar) { keyboard.showBottomBar = bar; keyboard.requestLayout(); }
         keyboard.configure(Prefs.str(this, Prefs.LAYOUT), variant, label, blue, langLabel);
         if (!restarting) {
             keyboard.forceShift(KeyboardView.SHIFT_OFF);

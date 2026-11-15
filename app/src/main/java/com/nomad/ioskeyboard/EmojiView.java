@@ -171,7 +171,7 @@ public class EmojiView extends View {
         if (w == 0 || h == 0) return;
         boolean land = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
         side = 6 * d;
-        bottomH = land ? 0 : 50 * d;
+        bottomH = land || !Prefs.bool(getContext(), Prefs.BOTTOM_BAR) ? 0 : 50 * d;
         barH = 42 * d;
         searchH = 44 * d;
         titleH = searchH + 26 * d;
@@ -424,7 +424,7 @@ public class EmojiView extends View {
         dragging = false;
         pressedEmoji = null;
         tonePopup = null;
-        if (y >= bottomTop) {
+        if (y >= bottomTop && bottomH > 0) {
             pressedBar = x < getWidth() / 2f ? -4 : -5;
             feedback.key(Key.MODE_NUM);
             if (pressedBar == -4) handler.postDelayed(globeLong, 500);
