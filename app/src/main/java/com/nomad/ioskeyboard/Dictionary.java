@@ -20,6 +20,7 @@ class Dictionary {
     private String[] words = new String[0];
     private String[] keys = new String[0];
     private float[] freq = new float[0];
+    private java.util.BitSet enOnly;
     private Integer[] sorted = new Integer[0];
     private final Map<String, Integer> exact = new HashMap<>();
     private final Map<String, Integer> byKey = new HashMap<>();
@@ -66,6 +67,7 @@ class Dictionary {
     }
     private byte[] bloom;
     private boolean latin = true;
+    private Set<String> frWords;
     private String lang = "fr_en";
     private int bloomM, bloomK;
 
@@ -83,7 +85,8 @@ class Dictionary {
         else if (lang.equals("he")) read("words_he.txt", 1f, merged);
         else {
             if (lang.contains("fr")) read("words_fr.txt", 1f, merged);
-            if (lang.contains("en")) read("words_en.txt", lang.contains("fr") ? 0.92f : 1f, merged);
+            frWords = new HashSet<>(merged.keySet());
+            if (lang.contains("en")) read("words_en.txt", lang.contains("fr") ? 0.85f : 1f, merged);
         }
         this.lang = lang;
         int n = merged.size();
@@ -109,6 +112,11 @@ class Dictionary {
                 l.add(j);
             }
         }
+        java.util.BitSet en = new java.util.BitSet(n);
+        if (lang.contains("fr") && lang.contains("en") && frWords != null)
+            for (int j = 0; j < n; j++) if (!frWords.contains(w[j])) en.set(j);
+        enOnly = en;
+        frWords = null;
         words = w; keys = k; freq = f; sorted = s;
         loadBloom();
         buildKeyPos(layout);
@@ -306,26 +314,32 @@ class Dictionary {
         for (int i = 0; i < k.length(); i++) if ("aeiouy".indexOf(k.charAt(i)) >= 0) vowel = true;
         useTouches = touches != null && touchCenters != null && !touchCenters.isEmpty() && touches.size() == k.length() && touchKeyW > 0;
         int len = k.length();
-        float max = len <= 2 ? 0.7f : len <= 4 ? 1.05f : len <= 7 ? 1.6f : 2.1f;
+        float max = len <= 2 ? 0.7f : len <= 4 ? 1.05f : len <= 7 ? 1.6f : Math.max(2.1f, len * 0.3f);
         char first = k.charAt(0);
+        char second = len > 1 ? k.charAt(1) : 0;
         int best = -1;
-        float bestScore = Float.MAX_VALUE;
+        float bestScore = Float.MAX_VALUE, secondScore = Float.MAX_VALUE;
         for (Map.Entry<Character, List<Integer>> e : byFirst.entrySet()) {
             char fc = e.getKey();
-            if (fc != first && adjacency(fc, first) > 0.65f) continue;
+            boolean firstOk = fc == first || adjacency(fc, first) <= 0.65f;
+            boolean swapOk = fc == second;
             for (int idx : e.getValue()) {
                 String cand = keys[idx];
                 if (Math.abs(cand.length() - len) > 1 + (len > 6 ? 1 : 0)) continue;
+                if (!firstOk && !(cand.length() > 1 && cand.charAt(1) == first) && !(swapOk && cand.length() > 1 && cand.charAt(1) == first)) continue;
                 float dist = distance(k, cand, max);
                 if (dist > max) continue;
-                float sc = dist - freq[idx] * 1.2f;
-                if (sc < bestScore) { bestScore = sc; best = idx; }
+                float sc = dist - freq[idx] * 1.2f + (enOnly != null && enOnly.get(idx) ? 0.3f : 0f);
+                if (sc < bestScore) { secondScore = bestScore; bestScore = sc; best = idx; }
+                else if (sc < secondScore && !keys[idx].equals(keys[best])) secondScore = sc;
             }
         }
         String split = split(lw);
         if (best < 0) { if (split != null) lastConfident = true; return split; }
         float bd = distance(k, keys[best], max);
-        lastConfident = vowel && len >= 4 && (bd <= 0.6f || (bd <= 1.05f && len >= 4 && freq[best] >= 0.4f) || (bd <= 1.6f && len >= 7 && freq[best] >= 0.45f));
+        boolean clear = secondScore - bestScore > 0.12f;
+        lastConfident = vowel && len >= 4 && clear && (bd <= 0.6f || (bd <= 1.05f && freq[best] >= 0.4f)
+                || (bd <= 1.6f && len >= 7 && freq[best] >= 0.4f) || (len >= 9 && bd <= len * 0.3f && freq[best] >= 0.3f));
         if (!lastConfident && split != null) { lastConfident = true; return split; }
         return words[best];
     }
