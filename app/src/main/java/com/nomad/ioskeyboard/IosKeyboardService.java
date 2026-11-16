@@ -388,6 +388,14 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             keyboard.setSuggestions(show, -1);
             return;
         }
+        String rep = shortcutsOn ? shortcuts.get(word.toLowerCase()) : null;
+        if (rep != null) {
+            if (Character.isUpperCase(word.charAt(0))) rep = cap(rep);
+            sugValues[0] = word; sugValues[1] = rep; sugValues[2] = "";
+            pendingCorrection = rep; pendingFor = word;
+            keyboard.setSuggestions(new String[]{"«" + word + "»", rep, ""}, 1);
+            return;
+        }
         if (word.length() != touches.size()) touches.clear();
         final List<PointF> t = touches.isEmpty() ? null : new ArrayList<>(touches);
         final java.util.Map<Character, PointF> centers = t == null ? null : keyboard.letterCenters();

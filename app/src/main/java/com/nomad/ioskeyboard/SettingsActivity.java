@@ -79,13 +79,13 @@ public class SettingsActivity extends Activity {
         f.setOrientation(LinearLayout.VERTICAL);
         f.setPadding(dp(20), dp(8), dp(20), 0);
         EditText a = new EditText(this);
-        a.setHint("Raccourci (ex : stp)");
+        a.setHint("Raccourci (ex : allah)");
         EditText b = new EditText(this);
-        b.setHint("Phrase (ex : s'il te plaît)");
+        b.setHint("Texte proposé (ex : الله)");
         f.addView(a);
         f.addView(b);
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Nouveau remplacement").setView(f)
+                .setTitle("Nouveau raccourci").setView(f)
                 .setPositiveButton("Ajouter", (dlg, w) -> {
                     String k = a.getText().toString().trim().toLowerCase(), v = b.getText().toString().trim();
                     if (k.isEmpty() || v.isEmpty() || k.contains(" ")) return;
@@ -222,7 +222,7 @@ public class SettingsActivity extends Activity {
                 {"Frappe intelligente", Prefs.SMART_TOUCH}, {"Effet verre", Prefs.GLASS},
                 {"Animations", Prefs.ANIMS}, {"Mot suivant", Prefs.NEXT_WORD},
                 {"Emoji suggérés", Prefs.EMOJI_SUGGEST}, {"Espace avant ? ! :", Prefs.FR_SPACING},
-                {"Remplacements", Prefs.SHORTCUTS}, {"Glisser ↓ = chiffre", Prefs.SWIPE_DOWN},
+                {"Raccourcis", Prefs.SHORTCUTS}, {"Glisser ↓ = chiffre", Prefs.SWIPE_DOWN},
                 {"Secouer = annuler", Prefs.SHAKE_UNDO}});
         TextView oh = text("CLAVIER À UNE MAIN", 13, Ui.SUB, Ui.semibold(this));
         oh.setLetterSpacing(0.18f);
@@ -230,7 +230,10 @@ public class SettingsActivity extends Activity {
         add(oh, 0);
         add(pills(Prefs.ONE_HAND, new String[]{"left", "off", "right"}, new String[]{"◧  Gauche", "Normal", "Droite  ◨"}), 0);
 
-        section("REMPLACEMENTS DE TEXTE");
+        section("RACCOURCIS");
+        TextView scTip = text("Tapez le raccourci : la phrase est proposée dans la barre de suggestions et remplacée à l'espace (ex : allah → الله).", 14, Ui.SUB, Ui.regular(this));
+        scTip.setPadding(dp(6), 0, dp(6), dp(12));
+        add(scTip, 0);
         shortcutCard = card();
         add(shortcutCard, 0);
         fillShortcuts();
