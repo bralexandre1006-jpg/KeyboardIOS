@@ -295,6 +295,9 @@ class Dictionary {
         if (SLANG.contains(lw) || userKnown(lw)) return null;
         String phrase = PHRASES.get(k);
         if (phrase != null && !phrase.equals(lw)) return phrase;
+        int ap0 = Math.max(lw.lastIndexOf('\''), lw.lastIndexOf('’'));
+        if (ap0 > 0 && ap0 < lw.length() - 1 && java.util.Arrays.asList("c", "d", "j", "l", "m", "n", "s", "t", "qu", "jusqu", "lorsqu", "puisqu")
+                .contains(lw.substring(0, ap0)) && isValid(lw.substring(ap0 + 1))) return null;
         Integer direct = byKey.get(k);
         Integer self = exact.get(lw);
         if (direct != null && !words[direct].equals(lw)
