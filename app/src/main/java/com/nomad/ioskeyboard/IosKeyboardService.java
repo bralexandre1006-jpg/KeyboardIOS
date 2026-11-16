@@ -235,6 +235,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         keyboard.showTrIcon = Prefs.bool(this, Prefs.TR_BAR) && suggest;
         keyboard.trEmoji = Prefs.bool(this, Prefs.TR_EMOJI) && suggest;
         keyboard.trReturn = Prefs.bool(this, Prefs.TR_RETURN) && suggest;
+        Translate.online = Prefs.bool(this, Prefs.TR_ONLINE);
         if (!restarting) { trMode = false; keyboard.setTranslation(false, "", ""); }
         loadShortcuts();
         registerShake(Prefs.bool(this, Prefs.SHAKE_UNDO));
@@ -516,6 +517,12 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         return true;
     }
 
+    private void learnWord(String w) {
+        if (w == null || w.isEmpty()) return;
+        String b = before(80);
+        dict.learn(previousWord(b.length() >= w.length() && b.endsWith(w) ? b : b + " " + w), w);
+    }
+
     private void learnCurrent() {
         String w = currentWord();
         if (w.isEmpty()) return;
@@ -533,8 +540,9 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         boolean punct = s.length() == 1 && ".,!?;:)]}…".indexOf(s.charAt(0)) >= 0;
         if (punct) {
             if (autoSpaced && before(1).equals(" ")) ic.deleteSurroundingText(1, 0);
-            learnCurrent();
+            String typed = currentWord();
             boolean corrected = applyCorrection();
+            learnWord(corrected ? revertCorrected : typed);
             if (!corrected) revertOriginal = null;
         } else {
             revertOriginal = null;
@@ -576,7 +584,6 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             lastSpaceTime = 0;
             revertOriginal = null;
         } else {
-            learnCurrent();
             String w = shortcutsOn ? currentWord() : "";
             String rep = w.isEmpty() ? null : shortcuts.get(w.toLowerCase());
             if (rep != null) {
@@ -585,7 +592,12 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
                 ic.commitText(rep, 1);
                 revertOriginal = w;
                 revertCorrected = rep;
-            } else if (!applyCorrection()) revertOriginal = null;
+            } else {
+                String typed = currentWord();
+                boolean corrected = applyCorrection();
+                if (!corrected) revertOriginal = null;
+                learnWord(corrected ? revertCorrected : typed);
+            }
             ic.commitText(" ", 1);
             lastSpaceTime = now;
         }
@@ -671,8 +683,9 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         if (action != EditorInfo.IME_ACTION_NONE) {
             ic.performEditorAction(action);
         } else {
-            learnCurrent();
-            applyCorrection();
+            String typed = currentWord();
+            boolean corrected = applyCorrection();
+            learnWord(corrected ? revertCorrected : typed);
             if (multiline) ic.commitText("\n", 1);
             else sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER);
         }
@@ -899,15 +912,29 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     @Override
     public void onTranslatePill(boolean longPress) {
         if (longPress) { if (trMode) onTranslateToggle(); return; }
-        String cur = Prefs.str(this, Prefs.TR_TARGET);
-        int i = 0;
-        for (int k = 0; k < Translate.CODES.length; k++) if (Translate.CODES[k].equals(cur)) i = k;
-        String next = Translate.CODES[(i + 1) % Translate.CODES.length];
-        if (next.equals(trSource())) next = Translate.CODES[(i + 2) % Translate.CODES.length];
-        Prefs.get(this).edit().putString(Prefs.TR_TARGET, next).apply();
+        java.util.List<String> l = new java.util.ArrayList<>();
+        for (String c : Translate.CODES) if (!c.equals(trSource())) l.add(c);
+        keyboard.openLangMenu(0, l.toArray(new String[0]), Prefs.str(this, Prefs.TR_TARGET));
+    }
+
+    @Override
+    public void onTranslateTarget(String code) {
+        Prefs.get(this).edit().putString(Prefs.TR_TARGET, code).apply();
         trResult = ""; trFor = "";
         keyboard.setTranslation(true, trLabel(), "");
         requestTranslate();
+    }
+
+    @Override
+    public void onTranslateSendCode(String code) {
+        String text = fieldText().trim();
+        if (text.isEmpty()) return;
+        keyboard.setSuggestions(new String[]{"", "Traduction…", ""}, -1);
+        Translate.translate(trSource(), code, text, (res, err) -> main.post(() -> {
+            if (res == null) { Toast.makeText(this, err != null ? err : "Traduction impossible", Toast.LENGTH_SHORT).show(); return; }
+            replaceField(res);
+            sendAction();
+        }));
     }
 
     @Override
@@ -917,14 +944,11 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
 
     @Override
     public void onTranslateSend(int langIndex) {
-        String text = fieldText().trim();
-        if (text.isEmpty()) return;
-        keyboard.setSuggestions(new String[]{"", "Traduction…", ""}, -1);
-        Translate.translate(trSource(), Translate.CODES[langIndex], text, (res, err) -> main.post(() -> {
-            if (res == null) { Toast.makeText(this, err != null ? err : "Traduction impossible", Toast.LENGTH_SHORT).show(); return; }
-            replaceField(res);
-            sendAction();
-        }));
+        String[] codes = Prefs.str(this, Prefs.TR_SEND).split(",");
+        java.util.List<String> l = new java.util.ArrayList<>();
+        for (String c : codes) if (!c.trim().isEmpty()) l.add(c.trim());
+        if (l.isEmpty()) java.util.Collections.addAll(l, Translate.CODES);
+        keyboard.openLangMenu(1, l.toArray(new String[0]), "");
     }
 
     private void sendAction() {
@@ -952,12 +976,11 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         if (type == 0) return;
         lastEgg = now;
         android.graphics.Bitmap bmp = null;
-        java.io.File f = new java.io.File(getFilesDir(), type == 1 ? "egg_token.png" : "egg_31.png");
-        if (f.exists()) {
+        try (java.io.InputStream in = getAssets().open(type == 1 ? "egg_token.png" : "egg_31.jpg")) {
             android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
             o.inSampleSize = 2;
-            bmp = android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
-        }
+            bmp = android.graphics.BitmapFactory.decodeStream(in, null, o);
+        } catch (Exception ignored) { }
         keyboard.playEgg(type, bmp);
     }
 

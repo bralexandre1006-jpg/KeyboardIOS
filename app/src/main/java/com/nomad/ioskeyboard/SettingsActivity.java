@@ -188,7 +188,9 @@ public class SettingsActivity extends Activity {
         g.addView(noteView("Langue de traduction"));
         g.addView(spaced(pills(Prefs.TR_TARGET, new String[]{"en", "he", "tr", "ar", "es"}, new String[]{"EN", "HE", "TR", "AR", "ES"})));
         g.addView(spaced(rowCard(new String[][]{{"Traduire dans le menu 😊", Prefs.TR_EMOJI}, {"Icône 文A dans la barre", Prefs.TR_BAR},
-                {"Appui long sur Envoyer", Prefs.TR_RETURN}})));
+                {"Appui long sur Envoyer", Prefs.TR_RETURN}, {"Traduction en ligne (meilleure)", Prefs.TR_ONLINE}})));
+        g.addView(noteView("Langues proposées à l'appui long sur Envoyer"));
+        g.addView(spaced(sendLangCard()));
         g.addView(noteView("Mode traduction : la pastille rose change la langue (appui long pour arrêter), touchez la traduction pour l'insérer. Envoyer envoie le texte traduit. La 1re fois, la langue se télécharge (~30 Mo)."));
 
         g = group("Saisie");
@@ -208,17 +210,6 @@ public class SettingsActivity extends Activity {
 
         g = group("Easter eggs");
         g.addView(rowCard(new String[][]{{"Activer (jeton, 31 31 31)", Prefs.EASTER}}));
-        LinearLayout eggs = card();
-        eggs.setPadding(dp(18), dp(4), dp(18), dp(4));
-        TextView tok = link("Choisir l'image du jeton", Ui.GOLD);
-        tok.setGravity(Gravity.START);
-        tok.setOnClickListener(v -> pickImage(REQ_EGG_TOKEN));
-        eggs.addView(tok);
-        TextView face = link("Choisir la photo « 31 »", Ui.GOLD);
-        face.setGravity(Gravity.START);
-        face.setOnClickListener(v -> pickImage(REQ_EGG_31));
-        eggs.addView(face);
-        g.addView(spaced(eggs));
         g.addView(noteView("Écrivez « jeton fortnite » ou « 31 31 31 » pour les déclencher."));
 
         g = group("Raccourcis");
@@ -257,6 +248,24 @@ public class SettingsActivity extends Activity {
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("image/*");
         startActivityForResult(i, req);
+    }
+
+    private LinearLayout sendLangCard() {
+        LinearLayout c = card();
+        c.setPadding(0, dp(2), 0, dp(2));
+        java.util.Set<String> sel = new java.util.LinkedHashSet<>(java.util.Arrays.asList(Prefs.str(this, Prefs.TR_SEND).split(",")));
+        for (int i = 0; i < Translate.CODES.length; i++) {
+            String code = Translate.CODES[i];
+            Ui.ToggleRow row = new Ui.ToggleRow(this, Translate.NAMES[i], sel.contains(code));
+            row.setListener(on -> {
+                java.util.Set<String> cur = new java.util.LinkedHashSet<>(java.util.Arrays.asList(Prefs.str(this, Prefs.TR_SEND).split(",")));
+                cur.remove("");
+                if (on) cur.add(code); else cur.remove(code);
+                Prefs.get(this).edit().putString(Prefs.TR_SEND, String.join(",", cur)).apply();
+            });
+            c.addView(row);
+        }
+        return c;
     }
 
     private View spaced(View v) {

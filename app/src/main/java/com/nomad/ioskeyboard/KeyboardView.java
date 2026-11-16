@@ -44,6 +44,8 @@ public class KeyboardView extends View {
         void onTranslatePill(boolean longPress);
         void onTranslateApply();
         void onTranslateSend(int langIndex);
+        void onTranslateTarget(String code);
+        void onTranslateSendCode(String code);
     }
 
     static final int SHIFT_OFF = 0, SHIFT_ON = 1, SHIFT_LOCK = 2;
@@ -246,6 +248,105 @@ public class KeyboardView extends View {
             iconTr = new Key(Key.TRANSLATE, "", "", 1f), trPill = new Key(Key.TR_PILL, "", "", 1f), trTextKey = new Key(Key.TR_TEXT, "", "", 1f);
     boolean showTrIcon, trEmoji, trReturn;
     private boolean trActive;
+    // scrollable language overlay
+    private boolean langOpen;
+    private int langMode;
+    private String[] langCodes = new String[0];
+    private String langCurrent = "";
+    private float langScroll, langDownY, langLastY;
+    private boolean langDragging;
+    private int langPressed = -1;
+
+    void openLangMenu(int mode, String[] codes, String current) {
+        langOpen = true; langMode = mode; langCodes = codes; langCurrent = current == null ? "" : current;
+        langScroll = 0; langPressed = -1;
+        reset();
+        invalidate();
+    }
+
+    private float langItemH() { return rowH * 0.78f; }
+    private float langTop() { return keysTop - gapV / 2 + 46 * d; }
+    private float langMaxScroll() {
+        return Math.max(0, langCodes.length * langItemH() - (keysBottom() - langTop() - 6 * d));
+    }
+
+    private void drawLangMenu(Canvas c) {
+        Theme t = theme;
+        float top = keysTop - gapV / 2;
+        fill.setColor(t.bg);
+        c.drawRect(0, top, getWidth(), keysBottom() + bottomH, fill);
+        text.setTypeface(Typeface.DEFAULT_BOLD);
+        text.setTextSize(16 * d);
+        text.setColor(t.text);
+        text.setTextAlign(Paint.Align.LEFT);
+        c.drawText(langMode == 0 ? "Traduire vers" : "Envoyer en…", 16 * d, top + 28 * d, text);
+        text.setTextAlign(Paint.Align.RIGHT);
+        text.setColor(t.accent);
+        c.drawText("Fermer", getWidth() - 16 * d, top + 28 * d, text);
+        text.setTextAlign(Paint.Align.LEFT);
+        c.save();
+        c.clipRect(0, langTop(), getWidth(), keysBottom());
+        float ih = langItemH();
+        text.setTypeface(face);
+        text.setTextSize(Math.min(17 * d, unit * 0.43f));
+        for (int i = 0; i < langCodes.length; i++) {
+            float y = langTop() + i * ih - langScroll;
+            if (y + ih < langTop() || y > keysBottom()) continue;
+            boolean cur = langCodes[i].equals(langCurrent);
+            tmp.set(10 * d, y + 3 * d, getWidth() - 10 * d, y + ih - 3 * d);
+            fill.setColor(i == langPressed ? t.preview : cur ? 0xFFFF3D8B : t.key);
+            c.drawRoundRect(tmp, radius * 1.4f, radius * 1.4f, fill);
+            text.setColor(0xFFFFFFFF);
+            if (!cur && !t.dark && i != langPressed) text.setColor(t.text);
+            c.drawText(Translate.name(langCodes[i]), 24 * d, tmp.centerY() - (text.descent() + text.ascent()) / 2, text);
+        }
+        c.restore();
+        text.setTextAlign(Paint.Align.CENTER);
+        if (langMaxScroll() > 0) {
+            float trackH = keysBottom() - langTop();
+            float h = trackH * trackH / (trackH + langMaxScroll());
+            float y = langTop() + (trackH - h) * (langScroll / langMaxScroll());
+            fill.setColor(t.subText);
+            c.drawRoundRect(new RectF(getWidth() - 5 * d, y, getWidth() - 2 * d, y + h), 2 * d, 2 * d, fill);
+        }
+    }
+
+    private void langTouch(MotionEvent e) {
+        float x = e.getX(), y = e.getY();
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                langDownY = langLastY = y; langDragging = false;
+                langPressed = y >= langTop() && y <= keysBottom() ? (int) ((y - langTop() + langScroll) / langItemH()) : -1;
+                if (langPressed >= langCodes.length) langPressed = -1;
+                invalidate();
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (!langDragging && Math.abs(y - langDownY) > 8 * d) { langDragging = true; langPressed = -1; }
+                if (langDragging) {
+                    langScroll = Math.max(0, Math.min(langMaxScroll(), langScroll - (y - langLastY)));
+                    invalidate();
+                }
+                langLastY = y;
+                break;
+            case MotionEvent.ACTION_UP:
+                if (!langDragging) {
+                    if (y < langTop()) { langOpen = false; }
+                    else if (langPressed >= 0) {
+                        String code = langCodes[langPressed];
+                        langOpen = false;
+                        feedback.tick();
+                        if (langMode == 0) listener.onTranslateTarget(code); else listener.onTranslateSendCode(code);
+                    }
+                }
+                langPressed = -1;
+                invalidate();
+                break;
+            case MotionEvent.ACTION_CANCEL:
+                langPressed = -1;
+                invalidate();
+                break;
+        }
+    }
     private String trLabel = "", trText = "";
 
     void setTranslation(boolean active, String label, String text) {
@@ -595,6 +696,7 @@ public class KeyboardView extends View {
         drawBottomBar(c);
         if (voiceActive) drawVoice(c);
         if (menuOpen) drawMenu(c);
+        if (langOpen) drawLangMenu(c);
         if (pState == ST_GESTURE && trail.size() > 1) drawTrail(c);
         if (fadeKey != null && fadeKey != previewKey) drawPreview(c, fadeKey, fadeAlpha);
         if (previewKey != null && pState != ST_POPUP) drawPreview(c, previewKey, 1f);
@@ -1051,7 +1153,7 @@ public class KeyboardView extends View {
         return -1;
     }
 
-    void closeMenu() { menuOpen = false; invalidate(); }
+    void closeMenu() { menuOpen = false; langOpen = false; invalidate(); }
 
     private void drawVoice(Canvas c) {
         Theme t = theme;
@@ -1229,6 +1331,7 @@ public class KeyboardView extends View {
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         if (listener == null) return true;
+        if (langOpen) { langTouch(e); return true; }
         int a = e.getActionMasked();
         int i = e.getActionIndex();
         switch (a) {
@@ -1429,11 +1532,8 @@ public class KeyboardView extends View {
 
     private final Runnable returnMenu = () -> {
         if (pState != ST_PRESS || pKey == null || pKey.type != Key.RETURN) return;
-        int n = 5;
-        MIC_ITEMS = new String[n];
-        micActions = new int[n];
-        for (int i = 0; i < n; i++) { MIC_ITEMS[i] = "Envoyer en " + Translate.NAMES[i].toLowerCase(); micActions[i] = 20 + i; }
-        openListMenu();
+        reset();
+        listener.onTranslateSend(-1);
     };
 
     private final Runnable globeKeyLong = () -> {

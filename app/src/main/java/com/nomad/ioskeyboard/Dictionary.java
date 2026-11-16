@@ -211,7 +211,7 @@ class Dictionary {
 
     synchronized boolean isValid(String w) {
         String l = w.toLowerCase().replace('’', '\'');
-        return SLANG.contains(l) || exact.containsKey(l) || userWords.containsKey(l) || inLexicon(l);
+        return SLANG.contains(l) || exact.containsKey(l) || userKnown(l) || inLexicon(l);
     }
 
     synchronized List<String> complete(String prefix, int n) {
@@ -284,7 +284,7 @@ class Dictionary {
         for (int i = 0; i < word.length(); i++) if (Character.isDigit(word.charAt(i))) return null;
         String k = norm(word);
         String lw = word.toLowerCase().replace('’', '\'');
-        if (SLANG.contains(lw) || userWords.containsKey(lw)) return null;
+        if (SLANG.contains(lw) || userKnown(lw)) return null;
         String phrase = PHRASES.get(k);
         if (phrase != null && !phrase.equals(lw)) return phrase;
         Integer direct = byKey.get(k);
@@ -529,10 +529,15 @@ class Dictionary {
         dirty = true;
     }
 
+    private boolean userKnown(String w) {
+        Integer c = userWords.get(w);
+        return c != null && c >= 3;
+    }
+
     synchronized void addWord(String word) {
         String w = word.toLowerCase().replace('’', '\'');
         Integer c = userWords.get(w);
-        userWords.put(w, Math.max(2, c == null ? 2 : c + 1));
+        userWords.put(w, Math.max(5, c == null ? 5 : c + 1));
         dirty = true;
     }
 
