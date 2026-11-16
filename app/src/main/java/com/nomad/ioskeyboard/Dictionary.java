@@ -65,6 +65,8 @@ class Dictionary {
         for (int i = 0; i < p.length; i += 2) PHRASES.put(p[i], p[i + 1]);
     }
     private byte[] bloom;
+    private boolean latin = true;
+    private String lang = "fr_en";
     private int bloomM, bloomK;
 
     Dictionary(Context c) {
@@ -76,8 +78,14 @@ class Dictionary {
     void load(String lang, String layout) {
         ready = false;
         Map<String, Float> merged = new HashMap<>();
-        if (lang.contains("fr")) read("words_fr.txt", 1f, merged);
-        if (lang.contains("en")) read("words_en.txt", lang.contains("fr") ? 0.92f : 1f, merged);
+        latin = !lang.equals("tr") && !lang.equals("he");
+        if (lang.equals("tr")) read("words_tr.txt", 1f, merged);
+        else if (lang.equals("he")) read("words_he.txt", 1f, merged);
+        else {
+            if (lang.contains("fr")) read("words_fr.txt", 1f, merged);
+            if (lang.contains("en")) read("words_en.txt", lang.contains("fr") ? 0.92f : 1f, merged);
+        }
+        this.lang = lang;
         int n = merged.size();
         String[] w = new String[n];
         String[] k = new String[n];
@@ -143,7 +151,7 @@ class Dictionary {
 
     boolean inLexicon(String lw) {
         byte[] b = bloom;
-        if (b == null) return false;
+        if (b == null || !latin) return false;
         byte[] s = lw.getBytes(StandardCharsets.UTF_8);
         long h1 = fnv(s, 0), h2 = fnv(s, 0x9E3779B97F4A7C15L) | 1;
         for (int i = 0; i < bloomK; i++) {
@@ -159,10 +167,12 @@ class Dictionary {
 
     private void buildKeyPos(String layout) {
         keyPos.clear();
-        String[] r = "qwerty".equals(layout)
-                ? new String[]{"qwertyuiop", "asdfghjkl", "zxcvbnm"}
-                : new String[]{"azertyuiop", "qsdfghjklm", "wxcvbn"};
-        float[] off = "qwerty".equals(layout) ? new float[]{0, 0.5f, 1.5f} : new float[]{0, 0, 1.5f};
+        String[] r;
+        float[] off;
+        if ("tr".equals(layout)) { r = new String[]{"qwertyuıopğü", "asdfghjklşi", "zxcvbnmöç"}; off = new float[]{0, 0.5f, 1.5f}; }
+        else if ("he".equals(layout)) { r = new String[]{"קראטוןםפ", "שדגכעיחלךף", "זסבהנמצתץ"}; off = new float[]{0, 0, 0.5f}; }
+        else if ("qwerty".equals(layout)) { r = new String[]{"qwertyuiop", "asdfghjkl", "zxcvbnm"}; off = new float[]{0, 0.5f, 1.5f}; }
+        else { r = new String[]{"azertyuiop", "qsdfghjklm", "wxcvbn"}; off = new float[]{0, 0, 1.5f}; }
         for (int i = 0; i < r.length; i++)
             for (int j = 0; j < r[i].length(); j++) keyPos.put(r[i].charAt(j), new float[]{j + off[i], i});
     }
@@ -179,6 +189,14 @@ class Dictionary {
                 case 'ô': case 'ö': case 'ó': case 'ò': case 'õ': case 'ø': case 'ō': b.append('o'); break;
                 case 'ù': case 'û': case 'ü': case 'ú': case 'ū': b.append('u'); break;
                 case 'ÿ': b.append('y'); break;
+                case 'ş': b.append('s'); break;
+                case 'ğ': b.append('g'); break;
+                case 'ı': b.append('i'); break;
+                case 'ם': b.append('מ'); break;
+                case 'ן': b.append('נ'); break;
+                case 'ץ': b.append('צ'); break;
+                case 'ף': b.append('פ'); break;
+                case 'ך': b.append('כ'); break;
                 case 'ñ': case 'ń': b.append('n'); break;
                 case 'œ': b.append("oe"); break;
                 case 'æ': b.append("ae"); break;
@@ -223,6 +241,32 @@ class Dictionary {
             if (out.size() >= n) break;
             if (seenKeys.add(keys[idx]) && seen.add(words[idx])) out.add(words[idx]);
         }
+        return out;
+    }
+
+    /** Probability of each next letter after the given prefix (for adaptive touch targets). */
+    synchronized Map<Character, Float> nextLetterProbs(String prefix) {
+        if (!ready) return null;
+        String kp = norm(prefix);
+        int lo = 0, hi = sorted.length;
+        while (lo < hi) {
+            int m = (lo + hi) >>> 1;
+            if (keys[sorted[m]].compareTo(kp) < 0) lo = m + 1; else hi = m;
+        }
+        Map<Character, Float> out = new HashMap<>();
+        float sum = 0;
+        for (int i = lo; i < sorted.length && i < lo + 20000; i++) {
+            String k = keys[sorted[i]];
+            if (!k.startsWith(kp)) break;
+            if (k.length() <= kp.length()) continue;
+            float w = (float) Math.exp(freq[sorted[i]] * 7);
+            char c = k.charAt(kp.length());
+            Float o = out.get(c);
+            out.put(c, o == null ? w : o + w);
+            sum += w;
+        }
+        if (sum <= 0) return null;
+        for (Map.Entry<Character, Float> e : out.entrySet()) e.setValue(e.getValue() / sum);
         return out;
     }
 
@@ -490,17 +534,44 @@ class Dictionary {
         dirty = true;
     }
 
+    private static final Map<String, String[]> NEXT = new HashMap<>();
+    static {
+        String[] d = {
+                "je", "suis|vais|pense|sais|veux|peux|t'aime|crois", "j'ai", "pas|vu|fait|dit|besoin|envie|faim",
+                "tu", "es|as|veux|peux|vas|fais|sais|viens", "il", "y|est|a|faut|va|fait", "elle", "est|a|va|fait",
+                "on", "va|se|peut|est|a|fait", "nous", "sommes|avons|allons|pouvons", "vous", "êtes|avez|allez|pouvez",
+                "ils", "sont|ont|vont|font", "c'est", "pas|bon|vrai|ça|quoi|trop|bien", "ce", "que|qui|soir|matin|n'est",
+                "ça", "va|fait|marche|me|te", "est-ce", "que|qu'il|qu'on|que tu", "merci", "beaucoup|bien|à|pour",
+                "bonne", "nuit|journée|soirée|chance|année", "bon", "courage|appétit|week-end|anniversaire",
+                "à", "demain|plus|tout|bientôt|la|toi", "de", "la|rien|toute|mon|ton", "pour", "toi|moi|le|la|ça|que",
+                "dans", "le|la|les|un|une", "avec", "toi|moi|lui|elle|eux", "je suis", "en|à|là|pas|désolé",
+                "tu es", "où|là|sûr|chez", "comment", "ça|tu|vas-tu|allez-vous", "quoi", "de|neuf", "très", "bien|bon|beau",
+                "pas", "de|du|mal|encore|grave", "t'es", "où|sûr|là|chez", "il y", "a", "y", "a|aller", "tout", "le|de|à|va|ça",
+                "rien", "de|à", "vas", "bien|voir", "je vais", "bien|te|le|y|faire", "on se", "voit|capte|parle",
+                "i", "am|have|will|don't|think|love", "you", "are|can|have|know|want", "it's", "a|not|ok|fine",
+                "bir", "şey|gün|kere", "ben", "de|bir|seni|çok", "çok", "güzel|iyi|teşekkürler", "nasıl", "sın|gidiyor",
+                "אני", "לא|רוצה|יודע|אוהב", "זה", "לא|היה|בסדר", "מה", "שלומך|קורה|אתה"};
+        for (int i = 0; i < d.length; i += 2) NEXT.put(d[i], d[i + 1].split("\\|"));
+    }
+
     synchronized List<String> predict(String prev, int n) {
         List<String> out = new ArrayList<>();
         if (prev == null || prev.isEmpty()) return out;
-        Map<String, Integer> m = bigrams.get(prev.toLowerCase().replace('’', '\''));
-        if (m == null) return out;
+        String pk = prev.toLowerCase().replace('’', '\'');
+        Map<String, Integer> m = bigrams.get(pk);
+        if (m == null) {
+            String[] b = NEXT.get(pk);
+            if (b != null) for (String x : b) { if (out.size() >= n) break; out.add(x); }
+            return out;
+        }
         List<Map.Entry<String, Integer>> l = new ArrayList<>(m.entrySet());
         Collections.sort(l, (a, b) -> b.getValue() - a.getValue());
         for (Map.Entry<String, Integer> e : l) {
             if (out.size() >= n) break;
             out.add(e.getKey());
         }
+        String[] b = NEXT.get(pk);
+        if (b != null) for (String x : b) { if (out.size() >= n) break; if (!out.contains(x)) out.add(x); }
         return out;
     }
 

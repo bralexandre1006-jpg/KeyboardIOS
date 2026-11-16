@@ -43,6 +43,58 @@ public class SettingsActivity extends Activity {
     private Ui.GoldButton cta;
     private EditText test;
     private int state;
+    private LinearLayout shortcutCard;
+
+    private void fillShortcuts() {
+        shortcutCard.removeAllViews();
+        String raw = Prefs.str(this, Prefs.SHORTCUT_LIST);
+        List<String> lines = new ArrayList<>();
+        for (String l : raw.split("\n")) if (l.indexOf('\t') > 0) lines.add(l);
+        for (String l : lines) {
+            int t = l.indexOf('\t');
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(0, dp(8), 0, dp(8));
+            TextView k = text(l.substring(0, t), 18, Ui.GOLD, Ui.heavy(this));
+            row.addView(k, new LinearLayout.LayoutParams(dp(90), ViewGroup.LayoutParams.WRAP_CONTENT));
+            row.addView(text(l.substring(t + 1), 16, Ui.TEXT, Ui.regular(this)), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            TextView x = text("✕", 18, Ui.SUB, Ui.semibold(this));
+            x.setPadding(dp(12), dp(4), dp(4), dp(4));
+            x.setOnClickListener(v -> {
+                List<String> keep = new ArrayList<>(lines);
+                keep.remove(l);
+                Prefs.get(this).edit().putString(Prefs.SHORTCUT_LIST, String.join("\n", keep)).apply();
+                fillShortcuts();
+            });
+            row.addView(x);
+            shortcutCard.addView(row);
+        }
+        TextView addBtn = link("+ Ajouter un raccourci", Ui.GOLD);
+        addBtn.setOnClickListener(v -> addShortcut());
+        shortcutCard.addView(addBtn);
+    }
+
+    private void addShortcut() {
+        LinearLayout f = new LinearLayout(this);
+        f.setOrientation(LinearLayout.VERTICAL);
+        f.setPadding(dp(20), dp(8), dp(20), 0);
+        EditText a = new EditText(this);
+        a.setHint("Raccourci (ex : stp)");
+        EditText b = new EditText(this);
+        b.setHint("Phrase (ex : s'il te plaît)");
+        f.addView(a);
+        f.addView(b);
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Nouveau remplacement").setView(f)
+                .setPositiveButton("Ajouter", (dlg, w) -> {
+                    String k = a.getText().toString().trim().toLowerCase(), v = b.getText().toString().trim();
+                    if (k.isEmpty() || v.isEmpty() || k.contains(" ")) return;
+                    String raw = Prefs.str(this, Prefs.SHORTCUT_LIST);
+                    Prefs.get(this).edit().putString(Prefs.SHORTCUT_LIST, (raw.isEmpty() ? "" : raw + "\n") + k + "\t" + v).apply();
+                    fillShortcuts();
+                })
+                .setNegativeButton("Annuler", null).show();
+    }
 
     @Override
     @SuppressWarnings("deprecation")
@@ -147,6 +199,12 @@ public class SettingsActivity extends Activity {
         add(pills(Prefs.LAYOUT, new String[]{"azerty", "qwerty"}, new String[]{"AZERTY", "QWERTY"}), 10);
         add(pills(Prefs.LANG, new String[]{"fr_en", "fr", "en"}, new String[]{"FR + EN", "Français", "English"}), 10);
 
+        section("AUTRES CLAVIERS");
+        grid(new String[][]{{"Turc (Türkçe)", Prefs.KB_TR}, {"Hébreu (עברית)", Prefs.KB_HE}});
+        TextView kbTip = text("Une touche 🌐 apparaît dans le clavier pour passer d'une langue à l'autre (appui long : choisir un autre clavier).", 14, Ui.SUB, Ui.regular(this));
+        kbTip.setPadding(dp(6), dp(12), dp(6), 0);
+        add(kbTip, 0);
+
         section("SAISIE");
         grid(new String[][]{{"Correction auto", Prefs.AUTOCORRECT}, {"Prédictions", Prefs.PREDICT},
                 {"Balayer pour écrire", Prefs.SWIPE}, {"Majuscules auto", Prefs.AUTOCAP},
@@ -158,6 +216,24 @@ public class SettingsActivity extends Activity {
         TextView tip = text("Astuce : appui long sur 😊 dans le clavier pour les réglages rapides.", 14, Ui.SUB, Ui.regular(this));
         tip.setPadding(dp(6), dp(12), dp(6), 0);
         add(tip, 0);
+
+        section("AVANCÉ");
+        grid(new String[][]{{"Sons iPhone", Prefs.IOS_SOUND}, {"Vibrations iPhone", Prefs.IOS_HAPTIC},
+                {"Frappe intelligente", Prefs.SMART_TOUCH}, {"Effet verre", Prefs.GLASS},
+                {"Animations", Prefs.ANIMS}, {"Mot suivant", Prefs.NEXT_WORD},
+                {"Emoji suggérés", Prefs.EMOJI_SUGGEST}, {"Espace avant ? ! :", Prefs.FR_SPACING},
+                {"Remplacements", Prefs.SHORTCUTS}, {"Glisser ↓ = chiffre", Prefs.SWIPE_DOWN},
+                {"Secouer = annuler", Prefs.SHAKE_UNDO}});
+        TextView oh = text("CLAVIER À UNE MAIN", 13, Ui.SUB, Ui.semibold(this));
+        oh.setLetterSpacing(0.18f);
+        oh.setPadding(dp(6), dp(18), 0, dp(10));
+        add(oh, 0);
+        add(pills(Prefs.ONE_HAND, new String[]{"left", "off", "right"}, new String[]{"◧  Gauche", "Normal", "Droite  ◨"}), 0);
+
+        section("REMPLACEMENTS DE TEXTE");
+        shortcutCard = card();
+        add(shortcutCard, 0);
+        fillShortcuts();
 
         section("DONNÉES");
         LinearLayout data = card();

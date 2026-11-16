@@ -100,7 +100,17 @@ final class EmojiData {
                 }
             }
         } catch (Exception ignored) { }
-        for (Map.Entry<String, Integer> en : count.entrySet()) if (en.getValue() > 3) w2e.remove(en.getKey());
+        for (Map.Entry<String, Integer> en : count.entrySet()) if (en.getValue() > 5) w2e.remove(en.getKey());
+        String[] manual = {"coeur", "❤️", "amour", "❤️", "aime", "❤️", "love", "❤️", "mdr", "😂", "lol", "😂", "ptdr", "🤣", "rire", "😂",
+                "merci", "🙏", "bisous", "😘", "bisou", "😘", "ok", "👍", "daccord", "👍", "triste", "😢", "pleure", "😭", "feu", "🔥",
+                "fete", "🎉", "anniversaire", "🎂", "cool", "😎", "bravo", "👏", "bonjour", "👋", "salut", "👋", "coucou", "👋",
+                "nuit", "🌙", "dodo", "😴", "fatigue", "😴", "faim", "😋", "manger", "🍽️", "biere", "🍺", "vin", "🍷", "cafe", "☕",
+                "soleil", "☀️", "pluie", "🌧️", "chat", "🐱", "chien", "🐶", "voiture", "🚗", "maison", "🏠", "argent", "💰",
+                "musique", "🎵", "foot", "⚽", "sport", "💪", "colere", "😡", "peur", "😱", "wow", "😮", "oui", "✅", "non", "❌",
+                "bien", "👌", "parfait", "👌", "magnifique", "😍", "belle", "😍", "beau", "😍", "genial", "🤩", "fleur", "🌸",
+                "cadeau", "🎁", "noel", "🎄", "vacances", "🏖️", "plage", "🏖️", "avion", "✈️", "telephone", "📱", "photo", "📸",
+                "pizza", "🍕", "burger", "🍔", "gateau", "🍰", "chocolat", "🍫", "taxi", "🚕", "travail", "💼", "ecole", "🏫"};
+        for (int i = 0; i < manual.length; i += 2) if (available.contains(manual[i + 1]) || available.contains(manual[i + 1].replace("\uFE0F", ""))) w2e.put(manual[i], manual[i + 1]);
         wordToEmoji = w2e;
         keywords = kw;
     }

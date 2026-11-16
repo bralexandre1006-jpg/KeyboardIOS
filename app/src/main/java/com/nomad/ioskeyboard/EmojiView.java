@@ -47,6 +47,8 @@ public class EmojiView extends View {
     private List<EmojiData.Category> cats = new ArrayList<>();
     private final List<String> recents = new ArrayList<>();
     private final List<Boolean> recentSkin = new ArrayList<>();
+    private final List<String> shownRecents = new ArrayList<>();
+    private final List<Boolean> shownSkin = new ArrayList<>();
     private final Map<String, Integer> tones = new HashMap<>();
     private float[] catStart = new float[0];
     private float contentW, cellW, cellH, gridTop, titleH, searchH, barTop, barH, bottomTop, bottomH, side;
@@ -103,6 +105,8 @@ public class EmojiView extends View {
         emoji.setTypeface(tf);
         grey.setTypeface(tf);
         cats = EmojiData.get(getContext());
+        shownRecents.clear(); shownRecents.addAll(recents);
+        shownSkin.clear(); shownSkin.addAll(recentSkin);
         layoutContent();
         invalidate();
     }
@@ -158,9 +162,9 @@ public class EmojiView extends View {
 
     private int catCount() { return cats.size() + 1; }
 
-    private List<String> catEmojis(int i) { return i == 0 ? recents : cats.get(i - 1).emojis; }
+    private List<String> catEmojis(int i) { return i == 0 ? shownRecents : cats.get(i - 1).emojis; }
 
-    private boolean catSkin(int i, int j) { return i == 0 ? recentSkin.get(j) : cats.get(i - 1).skin.get(j); }
+    private boolean catSkin(int i, int j) { return i == 0 ? shownSkin.get(j) : cats.get(i - 1).skin.get(j); }
 
     private String catName(int i) { return i == 0 ? "Fréquemment utilisés" : cats.get(i - 1).name; }
 
@@ -508,7 +512,6 @@ public class EmojiView extends View {
             addRecent(base);
             for (int i = 0; i < recents.size(); i++) if (recents.get(i).equals(base)) recentSkin.set(i, true);
             saveState();
-            layoutContent();
         } else if (pressedBar == -2) {
             if (dragging) {
                 float vx = velocity != null ? velocity.getXVelocity() : 0;
@@ -522,7 +525,6 @@ public class EmojiView extends View {
                 addRecent(pressedEmoji);
                 recentSkin.set(0, skin);
                 saveState();
-                if (currentCat() != 0) layoutContent();
             }
         } else if (pressedBar == -1) {
             listener.onEmojiAbc();

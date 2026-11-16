@@ -28,6 +28,6 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    androidResources { noCompress 'txt' }
+    androidResources { noCompress 'txt', 'wav', 'bloom' }
     lint { checkReleaseBuilds false; abortOnError false }
 }

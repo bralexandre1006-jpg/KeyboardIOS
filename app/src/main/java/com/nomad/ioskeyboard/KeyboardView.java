@@ -37,13 +37,18 @@ public class KeyboardView extends View {
         void onSearchClose();
         void onQuickToggle(String prefKey);
         void onOpenSettings();
+        void onNextKeyboard();
+        void onMicOption(int index);
     }
 
     static final int SHIFT_OFF = 0, SHIFT_ON = 1, SHIFT_LOCK = 2;
     private static final int ST_NONE = 0, ST_PRESS = 1, ST_POPUP = 2, ST_GESTURE = 3, ST_TRACKPAD = 4,
-            ST_DELETE = 5, ST_MODE_SLIDE = 6, ST_SUGGEST = 7, ST_BOTTOM = 8;
+            ST_DELETE = 5, ST_MODE_SLIDE = 6, ST_SUGGEST = 7, ST_BOTTOM = 8, ST_MICMENU = 9;
+    private static final String[] MIC_ITEMS = {"Français", "English", "Türkçe", "עברית", "Masquer le micro"};
+    private int micSel = -1;
+    private final RectF micRect = new RectF();
 
-    private final float d;
+    private float d;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Feedback feedback;
     private Listener listener;
@@ -98,7 +103,25 @@ public class KeyboardView extends View {
 
     private static Typeface face;
     private float xRatio = 0.55f, capRatio = 0.73f;
-    boolean showMic;
+    boolean showMic, showGlobe, glass = true, anims = true, smartTouch = true, swipeDown = true;
+    String oneHand = "off";
+    java.util.Locale locale = java.util.Locale.FRENCH;
+    private java.util.Map<Character, Float> letterProbs;
+    private float modeFade = 1f, sugFade = 1f;
+    private boolean builtGlobe;
+    private String downAlt;
+
+    void setLetterProbs(java.util.Map<Character, Float> p) { letterProbs = p; }
+
+    private String up(String s) { return s.toUpperCase(locale); }
+
+    private void animateFloat(java.util.function.Consumer<Float> set, long ms) {
+        android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        a.setDuration(ms);
+        a.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        a.addUpdateListener(v -> { set.accept((float) v.getAnimatedValue()); invalidate(); });
+        a.start();
+    }
     private boolean menuOpen;
     private int menuPressed = -1;
     private static final String[][] MENU = {
@@ -112,8 +135,8 @@ public class KeyboardView extends View {
     private void animatePopupIn() {
         if (popupAnimator != null) popupAnimator.cancel();
         popupAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f);
-        popupAnimator.setDuration(160);
-        popupAnimator.setInterpolator(new android.view.animation.OvershootInterpolator(1.6f));
+        popupAnimator.setDuration(90);
+        popupAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
         popupAnimator.addUpdateListener(a -> { popupAnim = (float) a.getAnimatedValue(); invalidate(); });
         popupAnimator.start();
     }
@@ -171,7 +194,7 @@ public class KeyboardView extends View {
     void applyTheme(Theme t) { theme = t; invalidate(); }
 
     void configure(String layout, int variant, String returnLabel, boolean returnAction, String langLabel) {
-        boolean changed = !layout.equals(layoutName) || variant != this.variant || !returnLabel.equals(this.returnLabel) || builtMic != showMic;
+        boolean changed = !layout.equals(layoutName) || variant != this.variant || !returnLabel.equals(this.returnLabel) || builtMic != showMic || builtGlobe != showGlobe || !oneHand.equals(builtOneHand);
         layoutName = layout; this.variant = variant; this.returnLabel = returnLabel;
         this.returnAction = returnAction; this.langLabel = langLabel;
         feedback.reload();
@@ -183,6 +206,7 @@ public class KeyboardView extends View {
         if (mode == m) return;
         mode = m;
         rebuild();
+        if (anims) { modeFade = 0f; animateFloat(v -> modeFade = v, 160); }
         if (listener != null) listener.onModeChanged();
     }
 
@@ -195,7 +219,13 @@ public class KeyboardView extends View {
     void forceShift(int s) { shift = s; invalidate(); }
 
     void setSuggestions(String[] s, int hl) {
-        for (int i = 0; i < 3; i++) suggestions[i] = s != null && i < s.length && s[i] != null ? s[i] : "";
+        boolean changed = false;
+        for (int i = 0; i < 3; i++) {
+            String v = s != null && i < s.length && s[i] != null ? s[i] : "";
+            if (!v.equals(suggestions[i])) changed = true;
+            suggestions[i] = v;
+        }
+        if (changed && anims && sugFade >= 1f) { sugFade = 0.35f; animateFloat(v -> sugFade = 0.35f + 0.65f * v, 120); }
         highlight = hl;
         invalidate();
     }
@@ -241,7 +271,9 @@ public class KeyboardView extends View {
 
     private void rebuild() {
         builtMic = showMic;
-        rows = Layouts.build(mode, layoutName, variant, returnLabel, showMic);
+        builtGlobe = showGlobe;
+        builtOneHand = oneHand;
+        rows = Layouts.build(mode, layoutName, variant, returnLabel, showMic, showGlobe);
         layoutKeys();
         invalidate();
     }
@@ -251,6 +283,7 @@ public class KeyboardView extends View {
     }
 
     private float topRadius;
+    private String builtOneHand = "off";
     private boolean builtMic;
     private float measureW;
 
@@ -288,11 +321,17 @@ public class KeyboardView extends View {
         float w = getWidth();
         if (w <= 0) return;
         unit = (w - 2 * sidePad) / 10f;
+        float usable = w - 2 * sidePad, x0 = sidePad;
+        if (!"off".equals(oneHand) && !landscape()) {
+            usable = w * 0.84f;
+            x0 = "left".equals(oneHand) ? sidePad : w - sidePad - usable;
+        }
+        float colUnit = usable / 10f;
         for (int i = 0; i < rows.size(); i++) {
             float top = keysTop + i * rowH;
-            float x = sidePad;
+            float x = x0;
             for (Key k : rows.get(i)) {
-                float kw = k.weight * unit;
+                float kw = k.weight * colUnit;
                 k.slotL = x; k.slotR = x + kw;
                 k.rect.set(x + gapH / 2, top + gapV / 2, x + kw - gapH / 2, top + rowH - gapV / 2);
                 x += kw;
@@ -313,7 +352,26 @@ public class KeyboardView extends View {
             float dist = x < k.slotL ? k.slotL - x : x > k.slotR ? x - k.slotR : 0;
             if (dist < bd) { bd = dist; best = k; }
         }
+        if (smartTouch && letterProbs != null && best != null && best.isLetter() && mode == Layouts.LETTERS) {
+            float bs = -Float.MAX_VALUE;
+            Key pick = best;
+            for (Key k : rows.get(r)) {
+                if (!k.isLetter()) continue;
+                float dx = Math.abs(x - k.rect.centerX()) / k.rect.width();
+                if (dx > 0.85f) continue;
+                Float pr = letterProbs.get(Character.toLowerCase(k.text.charAt(0)));
+                float sc = -dx * dx * 5f + 0.55f * (float) Math.log((pr == null ? 0 : pr) + 0.03f);
+                if (sc > bs) { bs = sc; pick = k; }
+            }
+            best = pick;
+        }
         return best;
+    }
+
+    private boolean oneHandStrip(float x, float y) {
+        if ("off".equals(oneHand) || y < keysTop || y > keysBottom()) return false;
+        float w = getWidth(), usable = w * 0.84f;
+        return "left".equals(oneHand) ? x > sidePad + usable : x < w - sidePad - usable;
     }
 
     // ---------- Drawing ----------
@@ -322,13 +380,21 @@ public class KeyboardView extends View {
     protected void onDraw(Canvas c) {
         Theme t = theme;
         c.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
-        fill.setColor(t.bg);
+        fill.setColor(glass ? (t.bg & 0x00FFFFFF) | 0xE8000000 : t.bg);
         tmp.set(0, 0, getWidth(), getHeight() + topRadius);
         c.drawRoundRect(tmp, topRadius, topRadius, fill);
+        if (glass) {
+            fill.setShader(new android.graphics.LinearGradient(0, 0, 0, sugH, t.dark ? 0x22FFFFFF : 0x55FFFFFF, 0x00FFFFFF, android.graphics.Shader.TileMode.CLAMP));
+            c.drawRoundRect(tmp, topRadius, topRadius, fill);
+            fill.setShader(null);
+        }
         boolean tp = pState == ST_TRACKPAD;
         if (searchMode) drawSearch(c);
         else if (showSuggestionBar && !tp) drawSuggestions(c);
+        int layer = modeFade < 1f ? c.saveLayerAlpha(0, keysTop, getWidth(), keysBottom(), (int) (255 * (0.3f + 0.7f * modeFade))) : -1;
         for (List<Key> r : rows) for (Key k : r) if (k.type != Key.SPACER) drawKey(c, k, tp);
+        if (layer >= 0) c.restoreToCount(layer);
+        if (!"off".equals(oneHand) && !landscape()) drawOneHandStrip(c);
         drawBottomBar(c);
         if (voiceActive) drawVoice(c);
         if (menuOpen) drawMenu(c);
@@ -336,6 +402,20 @@ public class KeyboardView extends View {
         if (fadeKey != null && fadeKey != previewKey) drawPreview(c, fadeKey, fadeAlpha);
         if (previewKey != null && pState != ST_POPUP) drawPreview(c, previewKey, 1f);
         if (pState == ST_POPUP && popupAlts != null) drawPopup(c);
+        if (pState == ST_MICMENU) drawMicMenu(c);
+    }
+
+    private void drawOneHandStrip(Canvas c) {
+        float w = getWidth(), usable = w * 0.84f;
+        float l = "left".equals(oneHand) ? sidePad + usable : 0, rr = "left".equals(oneHand) ? w : w - sidePad - usable;
+        float cx = (l + rr) / 2, cy = keysTop + rowH * 1.5f;
+        stroke.setColor(theme.subText);
+        stroke.setStrokeWidth(2f * d);
+        float a = 7 * d, dir = "left".equals(oneHand) ? 1 : -1;
+        c.drawLine(cx - a * 0.5f * dir, cy - a, cx + a * 0.5f * dir, cy, stroke);
+        c.drawLine(cx + a * 0.5f * dir, cy, cx - a * 0.5f * dir, cy + a, stroke);
+        tmp.set(cx - 6 * d, cy + rowH * 0.9f, cx + 6 * d, cy + rowH * 0.9f + 12 * d);
+        c.drawRect(tmp.left, tmp.top, tmp.right, tmp.top + 1.5f * d, fill);
     }
 
     private void drawSuggestions(Canvas c) {
@@ -356,12 +436,14 @@ public class KeyboardView extends View {
             String s = suggestions[i];
             if (s.isEmpty()) continue;
             text.setColor(t.text);
+            text.setAlpha((int) (255 * sugFade));
             Typeface ef = EmojiData.typeface(getContext());
             text.setTypeface(ef != null && Character.isSurrogate(s.charAt(0)) ? ef : face);
             text.setTextSize(Math.min(16 * d, unit * 0.4f));
             sugPaint.set(text);
             CharSequence e = TextUtils.ellipsize(s, sugPaint, w - 14 * d, TextUtils.TruncateAt.END);
             c.drawText(e.toString(), l + w / 2, sugH * 0.52f - (text.descent() + text.ascent()) / 2, text);
+            text.setAlpha(255);
         }
     }
 
@@ -452,6 +534,7 @@ public class KeyboardView extends View {
             case Key.DELETE: drawBackspace(c, cx, cy, unit * 0.62f, fg); return;
             case Key.EMOJI: drawSmiley(c, cx, cy, unit * 0.27f, fg); return;
             case Key.MIC: drawMic(c, cx, cy, unit * 0.3f, fg); return;
+            case Key.GLOBE: drawGlobe(c, cx, cy, unit * 0.27f, fg); return;
             case Key.RETURN: if (!returnAction && "retour".equals(k.label)) { drawReturn(c, cx, cy, unit * 0.5f, fg); return; } break;
             case Key.SPACE: if (!langLabel.isEmpty()) {
                     text.setTypeface(face);
@@ -469,7 +552,7 @@ public class KeyboardView extends View {
         boolean lower = false;
         if (k.type == Key.CHAR) {
             boolean up = mode == Layouts.LETTERS && shift != SHIFT_OFF && k.isLetter();
-            if (up) label = label.toUpperCase();
+            if (up) label = up(label);
             lower = k.isLetter() && !up;
             size = label.length() > 1 ? unit * 0.42f : (k.isLetter() ? unit * 0.6f : unit * 0.56f);
         } else {
@@ -588,7 +671,8 @@ public class KeyboardView extends View {
         c.save();
         drawBubble(c, r, bubble);
         String label = k.label;
-        if (mode == Layouts.LETTERS && shift != SHIFT_OFF && k.isLetter()) label = label.toUpperCase();
+        if (mode == Layouts.LETTERS && shift != SHIFT_OFF && k.isLetter()) label = up(label);
+        if (k == pKey && downAlt != null) label = downAlt;
         text.setTypeface(face);
         float ps = label.length() > 1 ? unit * 0.45f : unit * 0.74f;
         text.setTextSize(ps);
@@ -605,35 +689,75 @@ public class KeyboardView extends View {
     private void drawPopup(Canvas c) {
         RectF r = pKey.rect;
         int n = popupAlts.length;
-        float cw = r.width() * (popupAlts[0].length() > 1 ? 1.6f : 1f);
-        float pad = 5 * d;
-        float pw = n * cw + 2 * pad, ph = r.height() * 1.15f + 2 * pad;
+        float cw = popupCellW();
+        float pad = popupPad();
+        float pw = n * cw + 2 * pad, ph = r.height() * 0.95f + 2 * pad;
         float l = popupLeft ? r.right + pad - pw : r.left - pad;
         l = Math.max(2 * d, Math.min(getWidth() - 2 * d - pw, l));
         float bottom = r.top + r.height() * 0.04f;
-        float top = Math.max(0, bottom - ph - r.height() * 0.2f);
+        float top = Math.max(0, bottom - ph - r.height() * 0.06f);
         popupRect.set(l, top, l + pw, bottom);
-        c.save();
-        float sc = 0.55f + 0.45f * popupAnim;
-        c.scale(sc, sc, r.centerX(), r.top);
+        int alpha = (int) (255 * Math.max(0f, Math.min(1f, popupAnim)));
+        bubbleAlpha = alpha;
         drawBubble(c, r, popupRect);
+        bubbleAlpha = 255;
         RectF first = popupCell(popupLeft ? n - 1 : 0, cw, pad);
         float hl = first.left + selPos * cw;
         fill.setColor(theme.accent);
+        fill.setAlpha(alpha);
         tmp.set(hl + 1.5f * d, first.top + 1.5f * d, hl + cw - 1.5f * d, first.bottom - 1.5f * d);
         c.drawRoundRect(tmp, radius, radius, fill);
+        fill.setAlpha(255);
         text.setTypeface(face);
         for (int i = 0; i < n; i++) {
             RectF cell = popupCell(i, cw, pad);
             String s = popupAlts[i];
-            if (mode == Layouts.LETTERS && shift != SHIFT_OFF) s = s.toUpperCase();
-            text.setTextSize(s.length() > 1 ? unit * 0.42f : unit * 0.66f);
+            boolean upper = mode == Layouts.LETTERS && shift != SHIFT_OFF;
+            if (upper) s = up(s);
+            float ts = s.length() > 1 ? unit * 0.42f : unit * 0.6f;
+            text.setTextSize(ts);
             boolean selected = Math.abs((popupLeft ? n - 1 - i : i) - selPos) < 0.5f;
             text.setColor(selected ? theme.accentText : theme.text);
-            c.drawText(s, cell.centerX(), cell.centerY() - (text.descent() + text.ascent()) / 2, text);
+            text.setAlpha(alpha);
+            boolean letter = s.length() == 1 && Character.isLetter(s.charAt(0));
+            float base = letter ? cell.centerY() + (upper ? capRatio : xRatio) * ts / 2 : cell.centerY() - (text.descent() + text.ascent()) / 2;
+            c.drawText(s, cell.centerX(), base, text);
         }
-        c.restore();
+        text.setAlpha(255);
     }
+
+    private void drawMicMenu(Canvas c) {
+        float rr = radius * 1.8f;
+        if (!theme.dark) {
+            fill.setColor(0x33000000);
+            tmp.set(micRect.left, micRect.top + d, micRect.right, micRect.bottom + d);
+            c.drawRoundRect(tmp, rr, rr, fill);
+        }
+        fill.setColor(theme.preview);
+        c.drawRoundRect(micRect, rr, rr, fill);
+        float ih = (micRect.height() - 8 * d) / MIC_ITEMS.length;
+        text.setTypeface(face);
+        text.setTextSize(unit * 0.42f);
+        text.setTextAlign(Paint.Align.LEFT);
+        for (int i = 0; i < MIC_ITEMS.length; i++) {
+            float t = micRect.top + 4 * d + i * ih;
+            if (i == micSel) {
+                fill.setColor(theme.accent);
+                tmp.set(micRect.left + 4 * d, t, micRect.right - 4 * d, t + ih);
+                c.drawRoundRect(tmp, radius, radius, fill);
+            }
+            boolean last = i == MIC_ITEMS.length - 1;
+            text.setColor(i == micSel ? theme.accentText : last ? 0xFFFF453A : theme.text);
+            c.drawText(MIC_ITEMS[i], micRect.left + 14 * d, t + ih / 2 - (text.descent() + text.ascent()) / 2, text);
+        }
+        text.setTextAlign(Paint.Align.CENTER);
+    }
+
+    private float popupCellW() {
+        return pKey.rect.width() * (popupAlts[0].length() > 1 ? 1.5f : 1f);
+    }
+
+    private float popupPad() { return pKey.rect.width() * 0.06f; }
 
     private RectF popupCell(int i, float cw, float pad) {
         int pos = popupLeft ? popupAlts.length - 1 - i : i;
@@ -839,8 +963,8 @@ public class KeyboardView extends View {
         if (pKey.type == Key.SPACE) {
             startTrackpad();
         } else if (pKey.alts != null) {
-            popupAlts = pKey.alts;
-            popupSel = popupAlts.length > 1 ? 1 : 0;
+            popupAlts = pKey.isLetter() && pKey.alts.length > 1 ? java.util.Arrays.copyOfRange(pKey.alts, 1, pKey.alts.length) : pKey.alts;
+            popupSel = pKey.isLetter() ? 0 : (popupAlts.length > 1 ? 1 : 0);
             popupLeft = pKey.rect.centerX() > getWidth() / 2f;
             selPos = popupLeft ? popupAlts.length - 1 - popupSel : popupSel;
             popupOriginX = pX;
@@ -964,9 +1088,17 @@ public class KeyboardView extends View {
             invalidate();
             return;
         }
+        if (oneHandStrip(x, y)) {
+            pId = -1;
+            oneHand = "off";
+            Prefs.get(getContext()).edit().putString(Prefs.ONE_HAND, "off").apply();
+            rebuild();
+            return;
+        }
         Key k = findKey(x, y);
         if (k == null) { pId = -1; return; }
         pKey = k;
+        downAlt = null;
         feedback.key(k.type);
         switch (k.type) {
             case Key.CHAR:
@@ -1004,10 +1136,45 @@ public class KeyboardView extends View {
                 pState = ST_PRESS;
                 handler.postDelayed(openMenu, 450);
                 break;
+            case Key.GLOBE:
+                pState = ST_PRESS;
+                handler.postDelayed(globeKeyLong, 450);
+                break;
+            case Key.MIC:
+                pState = ST_PRESS;
+                handler.postDelayed(micMenuOpen, 420);
+                break;
             default:
                 pState = ST_PRESS;
         }
         invalidate();
+    }
+
+    private final Runnable micMenuOpen = () -> {
+        if (pState != ST_PRESS || pKey == null || pKey.type != Key.MIC) return;
+        pState = ST_MICMENU;
+        micSel = -1;
+        float w = unit * 4.2f, ih = rowH * 0.66f, h = ih * MIC_ITEMS.length + 8 * d;
+        float l = Math.max(4 * d, Math.min(getWidth() - 4 * d - w, pKey.rect.left));
+        float t = Math.max(2 * d, pKey.rect.top - 6 * d - h);
+        micRect.set(l, t, l + w, t + h);
+        feedback.tick();
+        invalidate();
+    };
+
+    private final Runnable globeKeyLong = () -> {
+        if (pState != ST_PRESS || pKey == null || pKey.type != Key.GLOBE) return;
+        reset();
+        listener.onGlobe(true);
+    };
+
+    private String downCharFor(Key k) {
+        if (!k.isLetter() || mode != Layouts.LETTERS) return null;
+        List<Key> row = rows.get(k.row);
+        int col = 0;
+        for (Key o : row) { if (o == k) break; if (o.type == Key.CHAR) col++; }
+        String src = k.row == 0 ? "1234567890" : k.row == 1 ? "-/:;()€&@\"" : ".,?!'\"-";
+        return col < src.length() ? String.valueOf(src.charAt(col)) : null;
     }
 
     private final Runnable openMenu = () -> {
@@ -1030,6 +1197,17 @@ public class KeyboardView extends View {
                         tpAccX = x - pDownX;
                     }
                 } else if (pKey.type == Key.CHAR) {
+                    if (swipeDown && downAlt == null && y - pDownY > rowH * 0.45f && Math.abs(x - pDownX) < unit * 0.4f) {
+                        String alt = downCharFor(pKey);
+                        if (alt != null) {
+                            downAlt = alt;
+                            handler.removeCallbacks(longPress);
+                            feedback.tick();
+                            invalidate();
+                            break;
+                        }
+                    }
+                    if (downAlt != null) break;
                     Key k = findKey(x, y);
                     float dist = (float) Math.hypot(x - pDownX, y - pDownY);
                     if (swipeEnabled && mode == Layouts.LETTERS && pKey.isLetter() && dist > unit * 0.6f && k != pKey && k != null && k.isLetter()) {
@@ -1058,14 +1236,23 @@ public class KeyboardView extends View {
                 break;
             }
             case ST_POPUP: {
-                float cw = pKey.rect.width() * (popupAlts[0].length() > 1 ? 1.6f : 1f);
-                float pad = 5 * d;
+                float cw = popupCellW();
+                float pad = popupPad();
                 int pos = (int) Math.floor((x - popupRect.left - pad) / cw);
                 pos = Math.max(0, Math.min(popupAlts.length - 1, pos));
                 int sel = popupLeft ? popupAlts.length - 1 - pos : pos;
                 if (Math.abs(x - popupOriginX) < cw * 0.45f) break;
                 popupOriginX = -10000;
                 if (sel != popupSel) { popupSel = sel; animateSel(sel); feedback.tick(); }
+                break;
+            }
+            case ST_MICMENU: {
+                int sel = -1;
+                if (micRect.contains(x, y)) {
+                    float ih = (micRect.height() - 8 * d) / MIC_ITEMS.length;
+                    sel = Math.max(0, Math.min(MIC_ITEMS.length - 1, (int) ((y - micRect.top - 4 * d) / ih)));
+                }
+                if (sel != micSel) { micSel = sel; if (sel >= 0) feedback.tick(); invalidate(); }
                 break;
             }
             case ST_TRACKPAD: {
@@ -1118,7 +1305,9 @@ public class KeyboardView extends View {
         Key k = pKey;
         switch (st) {
             case ST_PRESS:
-                if (k.type == Key.CHAR) fire(k);
+                if (k.type == Key.CHAR && downAlt != null) { lastTapX = k.rect.centerX(); lastTapY = k.rect.centerY(); commitText(downAlt); downAlt = null; }
+                else if (k.type == Key.CHAR) fire(k);
+                else if (k.type == Key.GLOBE) listener.onNextKeyboard();
                 else if (k.type == Key.SPACE) listener.onSpace();
                 else if (k.type == Key.RETURN) listener.onReturn();
                 else if (k.type == Key.EMOJI) listener.onEmoji();
@@ -1127,11 +1316,17 @@ public class KeyboardView extends View {
             case ST_POPUP:
                 if (popupSel >= 0) {
                     String s = popupAlts[popupSel];
-                    if (mode == Layouts.LETTERS && shift != SHIFT_OFF) s = s.toUpperCase();
+                    if (mode == Layouts.LETTERS && shift != SHIFT_OFF) s = up(s);
                     lastTapX = pKey.rect.centerX(); lastTapY = pKey.rect.centerY();
                     commitText(s);
                 }
                 break;
+            case ST_MICMENU: {
+                int m = micSel;
+                reset();
+                if (m >= 0) listener.onMicOption(m);
+                return;
+            }
             case ST_GESTURE: {
                 List<PointF> pts = new ArrayList<>(trail);
                 reset();
@@ -1168,6 +1363,8 @@ public class KeyboardView extends View {
 
     private void reset() {
         handler.removeCallbacks(openMenu);
+        handler.removeCallbacks(globeKeyLong);
+        handler.removeCallbacks(micMenuOpen);
         handler.removeCallbacks(longPress);
         handler.removeCallbacks(deleteRepeat);
         handler.removeCallbacks(globeLong);
@@ -1183,7 +1380,7 @@ public class KeyboardView extends View {
         if (pKey == k && pId != -1) { lastTapX = pX; lastTapY = pY; }
         else { lastTapX = k.rect.centerX(); lastTapY = k.rect.centerY(); }
         String s = k.text;
-        if (mode == Layouts.LETTERS && shift != SHIFT_OFF && k.isLetter()) s = s.toUpperCase();
+        if (mode == Layouts.LETTERS && shift != SHIFT_OFF && k.isLetter()) s = up(s);
         commitText(s);
         if (mode != Layouts.LETTERS && "'".equals(k.text)) setMode(Layouts.LETTERS);
     }

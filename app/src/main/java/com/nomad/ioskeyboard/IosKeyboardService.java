@@ -51,6 +51,42 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     private int sugGen;
     private String pendingFor;
     private int selStart = -1, selEnd = -1;
+    private boolean frSpacing, shortcutsOn, emojiSuggest, nextWord;
+    private final java.util.Map<String, String> shortcuts = new java.util.HashMap<>();
+    private android.hardware.SensorManager sensors;
+    private android.hardware.SensorEventListener shakeListener;
+    private long lastShake, lastShakeAction;
+
+    private void loadShortcuts() {
+        shortcuts.clear();
+        for (String line : Prefs.str(this, Prefs.SHORTCUT_LIST).split("\n")) {
+            int t = line.indexOf('\t');
+            if (t > 0) shortcuts.put(line.substring(0, t).toLowerCase(), line.substring(t + 1));
+        }
+    }
+
+    private void registerShake(boolean on) {
+        if (sensors == null) sensors = (android.hardware.SensorManager) getSystemService(SENSOR_SERVICE);
+        if (shakeListener != null) { sensors.unregisterListener(shakeListener); shakeListener = null; }
+        if (!on || sensors == null) return;
+        android.hardware.Sensor acc = sensors.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER);
+        if (acc == null) return;
+        shakeListener = new android.hardware.SensorEventListener() {
+            @Override public void onSensorChanged(android.hardware.SensorEvent e) {
+                float g = (float) Math.sqrt(e.values[0] * e.values[0] + e.values[1] * e.values[1] + e.values[2] * e.values[2]) / 9.81f;
+                if (g < 2.6f) return;
+                long now = SystemClock.uptimeMillis();
+                if (now - lastShake < 600 && now - lastShakeAction > 1500) {
+                    lastShakeAction = now;
+                    onDelete(true);
+                    Toast.makeText(IosKeyboardService.this, "Saisie annulée", Toast.LENGTH_SHORT).show();
+                }
+                lastShake = now;
+            }
+            @Override public void onAccuracyChanged(android.hardware.Sensor s, int a) { }
+        };
+        sensors.registerListener(shakeListener, acc, android.hardware.SensorManager.SENSOR_DELAY_UI);
+    }
     private boolean searching, swipeBeforeSearch;
     private final StringBuilder query = new StringBuilder();
     private List<String> results = new ArrayList<>();
@@ -68,7 +104,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     }
 
     private void reloadDictionary() {
-        String lang = Prefs.str(this, Prefs.LANG), layout = Prefs.str(this, Prefs.LAYOUT);
+        String lang = Prefs.dictLang(this), layout = Prefs.layoutId(this);
         if (lang.equals(loadedLang) && layout.equals(loadedLayout)) return;
         loadedLang = lang; loadedLayout = layout;
         new Thread(() -> {
@@ -137,14 +173,35 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             default: label = "retour"; blue = false; action = EditorInfo.IME_ACTION_NONE;
         }
         String lang = Prefs.str(this, Prefs.LANG);
-        String langLabel = lang.equals("fr_en") ? "FR EN" : "";
+        String kb = Prefs.activeKeyboard(this);
+        String langLabel = kb.equals("tr") ? "TR" : kb.equals("he") ? "HE" : lang.equals("fr_en") ? "FR EN" : lang.toUpperCase();
+        keyboard.showGlobe = Prefs.keyboards(this).size() > 1;
+        keyboard.locale = kb.equals("tr") ? new java.util.Locale("tr") : java.util.Locale.FRENCH;
+        keyboard.glass = Prefs.bool(this, Prefs.GLASS);
+        keyboard.anims = Prefs.bool(this, Prefs.ANIMS);
+        keyboard.smartTouch = Prefs.bool(this, Prefs.SMART_TOUCH);
+        keyboard.swipeDown = Prefs.bool(this, Prefs.SWIPE_DOWN);
+        keyboard.oneHand = Prefs.str(this, Prefs.ONE_HAND);
+        keyboard.setLetterProbs(null);
+        if (kb.equals("he")) autocap = false;
+        frSpacing = Prefs.bool(this, Prefs.FR_SPACING) && kb.equals("latin");
+        shortcutsOn = Prefs.bool(this, Prefs.SHORTCUTS);
+        emojiSuggest = Prefs.bool(this, Prefs.EMOJI_SUGGEST);
+        nextWord = Prefs.bool(this, Prefs.NEXT_WORD);
+        loadShortcuts();
+        registerShake(Prefs.bool(this, Prefs.SHAKE_UNDO));
         keyboard.capsLockEnabled = Prefs.bool(this, Prefs.CAPS_LOCK);
         keyboard.swipeEnabled = Prefs.bool(this, Prefs.SWIPE) && suggest;
         keyboard.showSuggestionBar = true;
         keyboard.showMic = Prefs.bool(this, Prefs.DICTATION) && variant == Layouts.VAR_TEXT && !numeric;
         boolean bar = Prefs.bool(this, Prefs.BOTTOM_BAR);
         if (bar != keyboard.showBottomBar) { keyboard.showBottomBar = bar; keyboard.requestLayout(); }
-        keyboard.configure(Prefs.str(this, Prefs.LAYOUT), variant, label, blue, langLabel);
+        keyboard.configure(Prefs.layoutId(this), variant, label, blue, langLabel);
+        if (!restarting && keyboard.anims) {
+            keyboard.setTranslationY(28 * getResources().getDisplayMetrics().density);
+            keyboard.setAlpha(0.5f);
+            keyboard.animate().translationY(0).alpha(1).setDuration(240).setInterpolator(new android.view.animation.DecelerateInterpolator(2f)).start();
+        }
         if (!restarting) {
             keyboard.forceShift(KeyboardView.SHIFT_OFF);
             keyboard.setMode(numeric ? Layouts.NUM : Layouts.LETTERS);
@@ -165,6 +222,9 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         Window w = getWindow().getWindow();
         if (w != null) {
             w.setNavigationBarColor(t.bg);
+            if (Build.VERSION.SDK_INT >= 31) {
+                try { w.setBackgroundBlurRadius(Prefs.bool(this, Prefs.GLASS) ? 60 : 0); } catch (Exception ignored) { }
+            }
             View decor = w.getDecorView();
             int flags = decor.getSystemUiVisibility();
             if (Build.VERSION.SDK_INT >= 26) {
@@ -178,6 +238,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     @Override
     public void onFinishInputView(boolean finishing) {
         super.onFinishInputView(finishing);
+        registerShake(false);
         stopVoice();
         dict.save();
     }
@@ -315,9 +376,12 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         }
         gestureWord = null;
         if (word.isEmpty()) {
-            List<String> p = dict.predict(previousWord(b + "x"), 3);
+            List<String> p = nextWord ? dict.predict(previousWord(b + "x"), 3) : new ArrayList<>();
             boolean start = b.isEmpty() || b.endsWith("\n") || (Character.isWhitespace(b.charAt(b.length() - 1)) && startOfSentence(b));
-            String[] defaults = start ? new String[]{"Je", "J’ai", "Le"} : new String[]{"de", "et", "la"};
+            String kbd = Prefs.activeKeyboard(this);
+            String[] defaults = kbd.equals("tr") ? (start ? new String[]{"Ben", "Bu", "Bir"} : new String[]{"ve", "bir", "bu"})
+                    : kbd.equals("he") ? new String[]{"אני", "זה", "לא"}
+                    : start ? new String[]{"Je", "J’ai", "Le"} : new String[]{"de", "et", "la"};
             for (String s : defaults) if (p.size() < 3 && !p.contains(s.toLowerCase())) p.add(s);
             for (int i = 0; i < 3 && i < p.size(); i++) sugValues[i] = start ? cap(p.get(i)) : p.get(i);
             String[] show = {sugValues[0], sugValues[1], sugValues[2]};
@@ -341,11 +405,13 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             String corr = cr[0];
             boolean confident = "1".equals(cr[1]);
             String c1 = corr != null && !corr.equalsIgnoreCase(w) ? matchCase(w, corr) : null;
-            String emo = EmojiData.forWord(c1 != null && confident ? c1 : w);
-            if (emo == null) emo = EmojiData.forWord(w);
+            String emo = emojiSuggest ? EmojiData.forWord(c1 != null && confident ? c1 : w) : null;
+            if (emo == null && emojiSuggest) emo = EmojiData.forWord(w);
+            final java.util.Map<Character, Float> probs = keyboard.smartTouch ? dict.nextLetterProbs(w) : null;
             final String fEmo = emo;
             main.post(() -> {
                 if (gen != sugGen) return;
+                keyboard.setLetterProbs(probs);
                 int hl = -1, slot = 1;
                 sugValues[0] = w; sugValues[1] = ""; sugValues[2] = "";
                 if (c1 != null) {
@@ -420,6 +486,10 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             ic.commitText(" ", 1);
         }
         gestureWord = null;
+        if (frSpacing && s.length() == 1 && "?!:;".indexOf(s.charAt(0)) >= 0) {
+            String pb = before(1);
+            if (!pb.isEmpty() && !Character.isWhitespace(pb.charAt(0))) ic.commitText(" ", 1);
+        }
         if (s.length() == 1 && Character.isLetter(s.charAt(0)) && keyboard.mode == Layouts.LETTERS) touches.add(new PointF(keyboard.lastTapX, keyboard.lastTapY));
         else touches.clear();
         ic.commitText(s, 1);
@@ -449,7 +519,15 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             revertOriginal = null;
         } else {
             learnCurrent();
-            if (!applyCorrection()) revertOriginal = null;
+            String w = shortcutsOn ? currentWord() : "";
+            String rep = w.isEmpty() ? null : shortcuts.get(w.toLowerCase());
+            if (rep != null) {
+                if (Character.isUpperCase(w.charAt(0))) rep = cap(rep);
+                ic.deleteSurroundingText(w.length(), 0);
+                ic.commitText(rep, 1);
+                revertOriginal = w;
+                revertCorrected = rep;
+            } else if (!applyCorrection()) revertOriginal = null;
             ic.commitText(" ", 1);
             lastSpaceTime = now;
         }
@@ -540,6 +618,11 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         emojiView.prepare(keyboard.theme);
         emojiView.setVisibility(View.VISIBLE);
         keyboard.setVisibility(View.INVISIBLE);
+        if (keyboard.anims) {
+            emojiView.setAlpha(0f);
+            emojiView.setTranslationY(16 * getResources().getDisplayMetrics().density);
+            emojiView.animate().alpha(1).translationY(0).setDuration(180).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        }
     }
 
     private void showKeyboard() {
@@ -656,6 +739,32 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     @Override
     public void onModeChanged() {
         if (keyboard.mode == Layouts.LETTERS) updateShift();
+    }
+
+    @Override
+    public void onMicOption(int i) {
+        if (i == 4) {
+            Prefs.get(this).edit().putBoolean(Prefs.DICTATION, false).apply();
+            EditorInfo info = getCurrentInputEditorInfo();
+            if (info != null) onStartInputView(info, true);
+            Toast.makeText(this, "Micro masqué (réactivable dans l'app)", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String[] langs = {"fr-FR", "en-US", "tr-TR", "he-IL"};
+        Prefs.get(this).edit().putString("dict_lang", langs[i]).apply();
+        onMic();
+    }
+
+    @Override
+    public void onNextKeyboard() {
+        java.util.List<String> l = Prefs.keyboards(this);
+        String cur = Prefs.activeKeyboard(this);
+        String next = l.get((l.indexOf(cur) + 1) % l.size());
+        Prefs.get(this).edit().putString(Prefs.ACTIVE_KB, next).apply();
+        EditorInfo info = getCurrentInputEditorInfo();
+        if (info != null) onStartInputView(info, true);
+        keyboard.setMode(Layouts.LETTERS);
+        updateShift();
     }
 
     // ---------- Quick settings ----------
@@ -779,7 +888,9 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         });
         Intent it = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         it.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        it.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Prefs.str(this, Prefs.LANG).equals("en") ? "en-US" : "fr-FR");
+        String kbl = Prefs.activeKeyboard(this);
+        String defLang = kbl.equals("tr") ? "tr-TR" : kbl.equals("he") ? "he-IL" : Prefs.str(this, Prefs.LANG).equals("en") ? "en-US" : "fr-FR";
+        it.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Prefs.get(this).getString("dict_lang", defLang));
         it.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         listening = true;
         keyboard.setVoice(true);
