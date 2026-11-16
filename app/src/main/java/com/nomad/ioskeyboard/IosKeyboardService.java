@@ -51,7 +51,45 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     private int sugGen;
     private String pendingFor;
     private int selStart = -1, selEnd = -1;
-    private boolean frSpacing, shortcutsOn, emojiSuggest, nextWord;
+    private boolean frSpacing, shortcutsOn, emojiSuggest, nextWord, grammar, easter;
+    private static final java.util.Set<String> SUBJ = new java.util.HashSet<>(java.util.Arrays.asList(
+            "il", "elle", "on", "qui", "ça", "ca", "cela", "y", "n'y", "l'", "t'", "m'", "lui", "personne", "tout", "rien",
+            "chacun", "quelqu'un", "qu'il", "qu'elle", "qu'on", "s'il", "elle-même", "lui-même", "ce"));
+    private static final java.util.Set<String> A_NEXT = new java.util.HashSet<>(java.util.Arrays.asList(
+            "la", "l'", "demain", "plus", "bientôt", "bientot", "tout", "toi", "moi", "eux", "elles", "côté", "cote", "cause",
+            "partir", "peine", "pied", "pieds", "vélo", "velo", "cheval", "midi", "minuit", "chaque", "quelle", "quel",
+            "quelles", "quels", "ma", "ta", "sa", "mes", "tes", "ses", "nos", "vos", "leur", "leurs", "quoi", "part",
+            "nouveau", "travers", "condition", "droite", "gauche", "cet", "cette", "lundi", "mardi", "mercredi", "jeudi",
+            "vendredi", "samedi", "dimanche", "l'heure", "table", "fond", "fond", "l'aise", "l'école", "l'ecole", "propos",
+            "jamais", "vie", "toute", "toutes", "tous", "nous", "vous", "domicile", "pas", "deux", "trois", "quatre", "cinq"));
+
+    private void fixAccentA() {
+        if (!grammar || !Prefs.activeKeyboard(this).equals("latin")) return;
+        InputConnection ic = ic();
+        if (ic == null) return;
+        String b = before(60);
+        if (!b.endsWith(" ")) return;
+        String[] w = b.trim().split("\\s+");
+        if (w.length < 2) return;
+        String next = w[w.length - 1], mid = w[w.length - 2], prev = w.length >= 3 ? w[w.length - 3] : "";
+        String ml = mid.toLowerCase();
+        if (!ml.equals("a") && !ml.equals("à")) return;
+        String nl = next.toLowerCase().replace('’', '\'');
+        String pl = prev.toLowerCase().replace('’', '\'');
+        boolean prevName = !prev.isEmpty() && Character.isUpperCase(prev.charAt(0)) && w.length >= 4
+                && !w[w.length - 4].matches(".*[.!?]$");
+        boolean subj = SUBJ.contains(pl) || pl.endsWith("'il") || prevName;
+        boolean infinitive = nl.length() > 3 && (nl.endsWith("er") || nl.endsWith("ir") || nl.endsWith("re") || nl.endsWith("oir")) && dict.isValid(nl);
+        String target = subj ? "a" : (A_NEXT.contains(nl) || nl.startsWith("l'") || infinitive) ? "à" : null;
+        if (target == null || target.equals(ml)) return;
+        if (Character.isUpperCase(mid.charAt(0))) target = target.toUpperCase();
+        String tail = mid + " " + next + " ";
+        if (!b.endsWith(tail)) return;
+        ic.beginBatchEdit();
+        ic.deleteSurroundingText(tail.length(), 0);
+        ic.commitText(target + " " + next + " ", 1);
+        ic.endBatchEdit();
+    }
     private final java.util.Map<String, String> shortcuts = new java.util.HashMap<>();
     private android.hardware.SensorManager sensors;
     private android.hardware.SensorEventListener shakeListener;
@@ -153,7 +191,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
 
         predict = Prefs.bool(this, Prefs.PREDICT);
         suggest = predict && !password && !email && !url && !numeric && cls != 0;
-        autocorrect = suggest && Prefs.bool(this, Prefs.AUTOCORRECT) && (info.inputType & InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) == 0;
+        autocorrect = suggest && Prefs.bool(this, Prefs.AUTOCORRECT);
         autocap = Prefs.bool(this, Prefs.AUTOCAP) && !password && !email && !url && !numeric
                 && var != InputType.TYPE_TEXT_VARIATION_FILTER;
         doubleSpace = false;
@@ -176,7 +214,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         String kb = Prefs.activeKeyboard(this);
         String langLabel = kb.equals("tr") ? "TR" : kb.equals("he") ? "HE" : lang.equals("fr_en") ? "FR EN" : lang.toUpperCase();
         keyboard.showGlobe = Prefs.keyboards(this).size() > 1;
-        keyboard.iconsTop = "top".equals(Prefs.str(this, Prefs.ICON_POS));
+        keyboard.iconPos = Prefs.str(this, Prefs.ICON_POS);
         keyboard.locale = kb.equals("tr") ? new java.util.Locale("tr") : java.util.Locale.FRENCH;
         keyboard.glass = Prefs.bool(this, Prefs.GLASS);
         keyboard.anims = Prefs.bool(this, Prefs.ANIMS);
@@ -189,6 +227,11 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         shortcutsOn = Prefs.bool(this, Prefs.SHORTCUTS);
         emojiSuggest = Prefs.bool(this, Prefs.EMOJI_SUGGEST);
         nextWord = Prefs.bool(this, Prefs.NEXT_WORD);
+        grammar = Prefs.bool(this, Prefs.GRAMMAR);
+        easter = Prefs.bool(this, Prefs.EASTER);
+        keyboard.closeMenu();
+        keyboard.quickMenu = Prefs.bool(this, Prefs.QUICK_MENU);
+        keyboard.swipeClose = Prefs.bool(this, Prefs.SWIPE_CLOSE);
         loadShortcuts();
         registerShake(Prefs.bool(this, Prefs.SHAKE_UNDO));
         keyboard.capsLockEnabled = Prefs.bool(this, Prefs.CAPS_LOCK);
@@ -504,6 +547,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         ic.commitText(s, 1);
         ic.endBatchEdit();
         autoSpaced = false;
+        checkEaster();
         afterEdit();
     }
 
@@ -541,6 +585,8 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             lastSpaceTime = now;
         }
         ic.endBatchEdit();
+        fixAccentA();
+        checkEaster();
         gestureWord = null;
         autoSpaced = false;
         touches.clear();
@@ -767,6 +813,32 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         if (info != null) onStartInputView(info, true);
         keyboard.setMode(Layouts.LETTERS);
         updateShift();
+    }
+
+    @Override
+    public void onHide() {
+        requestHideSelf(0);
+    }
+
+    private long lastEgg;
+
+    private void checkEaster() {
+        if (!easter) return;
+        long now = SystemClock.uptimeMillis();
+        if (now - lastEgg < 2500) return;
+        String b = Dictionary.norm(before(24).toLowerCase()).replaceAll("\\s+", " ").trim();
+        String raw = before(24).replaceAll("\\s+", " ").trim();
+        int type = b.endsWith("jeton fortnite") || b.endsWith("jetonfortnite") ? 1 : raw.endsWith("31 31 31") ? 2 : 0;
+        if (type == 0) return;
+        lastEgg = now;
+        android.graphics.Bitmap bmp = null;
+        java.io.File f = new java.io.File(getFilesDir(), type == 1 ? "egg_token.png" : "egg_31.png");
+        if (f.exists()) {
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inSampleSize = 2;
+            bmp = android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
+        }
+        keyboard.playEgg(type, bmp);
     }
 
     // ---------- Quick settings ----------

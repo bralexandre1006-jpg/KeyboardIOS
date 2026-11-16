@@ -292,7 +292,9 @@ class Dictionary {
         if (direct != null && !words[direct].equals(lw)
                 && (self == null ? (!inLexicon(lw) || freq[direct] > 0.5f) : freq[direct] > freq[self] + 0.1f)) return words[direct];
         int apo = Math.max(word.lastIndexOf('\''), word.lastIndexOf('’'));
-        if (apo > 0 && apo < word.length() - 1) {
+        String headL = apo > 0 ? lw.substring(0, apo) : "";
+        boolean elisionHead = apo > 0 && java.util.Arrays.asList("c", "d", "j", "l", "m", "n", "s", "t", "qu", "jusqu", "lorsqu", "puisqu", "quoiqu", "presqu", "aujourd").contains(headL);
+        if (apo > 0 && apo < word.length() - 1 && elisionHead) {
             if (isValid(word)) return null;
             String c = correct(word.substring(apo + 1));
             return c == null ? null : word.substring(0, apo + 1) + c;

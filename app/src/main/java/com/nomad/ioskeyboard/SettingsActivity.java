@@ -168,60 +168,59 @@ public class SettingsActivity extends Activity {
         hero.addView(cta, clp);
         add(hero, 0);
 
-        section("CLAVIER");
-        add(pills(Prefs.THEME, new String[]{"auto", "light", "dark"}, new String[]{"Auto", "Clair", "Sombre"}), 0);
-        add(pills(Prefs.LAYOUT, new String[]{"azerty", "qwerty"}, new String[]{"AZERTY", "QWERTY"}), 8);
-        add(pills(Prefs.LANG, new String[]{"fr_en", "fr", "en"}, new String[]{"FR + EN", "Français", "English"}), 8);
-
-        section("GLOBE ET MICRO");
-        add(pills(Prefs.ICON_POS, new String[]{"top", "bottom"}, new String[]{"En haut", "En bas"}), 0);
-        rows(new String[][]{{"Afficher le micro", Prefs.DICTATION}, {"Clavier turc", Prefs.KB_TR}, {"Clavier hébreu", Prefs.KB_HE}}, 8);
-        note("Le globe apparaît quand un autre clavier est activé. En haut : à la place d'une suggestion. Appui long sur le micro pour la langue de dictée.");
-
-        section("SAISIE");
+        section("ESSENTIEL");
         rows(new String[][]{{"Correction automatique", Prefs.AUTOCORRECT}, {"Prédictions", Prefs.PREDICT},
-                {"Balayer pour écrire", Prefs.SWIPE}, {"Majuscules automatiques", Prefs.AUTOCAP},
-                {"Verrouillage majuscules", Prefs.CAPS_LOCK}}, 0);
+                {"Son des touches", Prefs.SOUND}, {"Vibrations", Prefs.HAPTIC}}, 0);
+        add(pills(Prefs.THEME, new String[]{"auto", "light", "dark"}, new String[]{"Auto", "Clair", "Sombre"}), 10);
+        add(pills(Prefs.LAYOUT, new String[]{"azerty", "qwerty"}, new String[]{"AZERTY", "QWERTY"}), 8);
 
-        section("SONS ET VIBRATIONS");
-        rows(new String[][]{{"Son des touches", Prefs.SOUND}, {"Vibrations", Prefs.HAPTIC},
-                {"Sons iPhone", Prefs.IOS_SOUND}, {"Vibrations iPhone", Prefs.IOS_HAPTIC}}, 0);
+        section("PLUS DE RÉGLAGES");
+        LinearLayout g = group("Langues");
+        g.addView(pills(Prefs.LANG, new String[]{"fr_en", "fr", "en"}, new String[]{"FR + EN", "Français", "English"}));
+        g.addView(spaced(rowCard(new String[][]{{"Clavier turc", Prefs.KB_TR}, {"Clavier hébreu", Prefs.KB_HE}})));
 
-        section("AVANCÉ");
-        LinearLayout adv = new LinearLayout(this);
-        adv.setOrientation(LinearLayout.VERTICAL);
-        adv.setVisibility(View.GONE);
-        TextView toggleAdv = link("Afficher les options avancées", Ui.GOLD);
-        toggleAdv.setOnClickListener(v -> {
-            boolean show = adv.getVisibility() != View.VISIBLE;
-            adv.setVisibility(show ? View.VISIBLE : View.GONE);
-            if (show) { adv.setAlpha(0); adv.animate().alpha(1).setDuration(250).start(); }
-            toggleAdv.setText(show ? "Masquer les options avancées" : "Afficher les options avancées");
-        });
-        LinearLayout advCard = card();
-        advCard.setPadding(0, dp(4), 0, dp(4));
-        advCard.addView(toggleAdv);
-        add(advCard, 0);
-        LinearLayout list = rowCard(new String[][]{{"Frappe intelligente", Prefs.SMART_TOUCH}, {"Effet verre", Prefs.GLASS},
-                {"Animations", Prefs.ANIMS}, {"Mot suivant", Prefs.NEXT_WORD}, {"Emoji suggérés", Prefs.EMOJI_SUGGEST},
-                {"Raccourcis", Prefs.SHORTCUTS}, {"Glisser ↓ pour un chiffre", Prefs.SWIPE_DOWN},
-                {"Secouer pour annuler", Prefs.SHAKE_UNDO}, {"Espace avant ? ! :", Prefs.FR_SPACING}});
-        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        alp.topMargin = dp(10);
-        adv.addView(list, alp);
-        TextView oh = text("Clavier à une main", 14, Ui.SUB, Ui.semibold(this));
-        oh.setPadding(dp(6), dp(16), 0, dp(8));
-        adv.addView(oh);
-        adv.addView(pills(Prefs.ONE_HAND, new String[]{"left", "off", "right"}, new String[]{"Gauche", "Normal", "Droite"}));
-        add(adv, 0);
+        g = group("Globe, micro et emoji");
+        g.addView(pills(Prefs.ICON_POS, new String[]{"top", "bottom", "emoji"}, new String[]{"En haut", "En bas", "Sur 😊"}));
+        g.addView(spaced(rowCard(new String[][]{{"Afficher le micro", Prefs.DICTATION}, {"Réglages rapides (appui 😊)", Prefs.QUICK_MENU}})));
+        g.addView(noteView("« Sur 😊 » : appui long sur la touche emoji pour le globe et le micro, sans prendre de place."));
 
-        section("RACCOURCIS");
-        note("Tapez le raccourci : le texte est proposé dans la barre et remplacé à l'espace (ex : allah → الله).");
+        g = group("Saisie");
+        g.addView(rowCard(new String[][]{{"Orthographe a / à", Prefs.GRAMMAR}, {"Balayer pour écrire", Prefs.SWIPE},
+                {"Majuscules automatiques", Prefs.AUTOCAP}, {"Verrouillage majuscules", Prefs.CAPS_LOCK},
+                {"Mot suivant", Prefs.NEXT_WORD}, {"Emoji suggérés", Prefs.EMOJI_SUGGEST}, {"Raccourcis", Prefs.SHORTCUTS},
+                {"Glisser ↓ pour un chiffre", Prefs.SWIPE_DOWN}, {"Glisser vers le bas pour fermer", Prefs.SWIPE_CLOSE},
+                {"Espace avant ? ! :", Prefs.FR_SPACING}}));
+
+        g = group("Sons et effets");
+        g.addView(rowCard(new String[][]{{"Sons iPhone", Prefs.IOS_SOUND}, {"Vibrations iPhone", Prefs.IOS_HAPTIC},
+                {"Frappe intelligente", Prefs.SMART_TOUCH}, {"Effet verre", Prefs.GLASS}, {"Animations", Prefs.ANIMS},
+                {"Secouer pour annuler", Prefs.SHAKE_UNDO}}));
+
+        g = group("Clavier à une main");
+        g.addView(pills(Prefs.ONE_HAND, new String[]{"left", "off", "right"}, new String[]{"Gauche", "Normal", "Droite"}));
+
+        g = group("Easter eggs");
+        g.addView(rowCard(new String[][]{{"Activer (jeton, 31 31 31)", Prefs.EASTER}}));
+        LinearLayout eggs = card();
+        eggs.setPadding(dp(18), dp(4), dp(18), dp(4));
+        TextView tok = link("Choisir l'image du jeton", Ui.GOLD);
+        tok.setGravity(Gravity.START);
+        tok.setOnClickListener(v -> pickImage(REQ_EGG_TOKEN));
+        eggs.addView(tok);
+        TextView face = link("Choisir la photo « 31 »", Ui.GOLD);
+        face.setGravity(Gravity.START);
+        face.setOnClickListener(v -> pickImage(REQ_EGG_31));
+        eggs.addView(face);
+        g.addView(spaced(eggs));
+        g.addView(noteView("Écrivez « jeton fortnite » ou « 31 31 31 » pour les déclencher."));
+
+        g = group("Raccourcis");
+        g.addView(noteView("Tapez le raccourci : le texte est proposé dans la barre et remplacé à l'espace (ex : allah → الله)."));
         shortcutCard = card();
-        add(shortcutCard, 6);
+        g.addView(spaced(shortcutCard));
         fillShortcuts();
 
-        section("DONNÉES");
+        g = group("Données");
         LinearLayout data = card();
         data.setPadding(dp(18), dp(4), dp(18), dp(4));
         TextView mic = link("Autoriser le micro", Ui.GOLD);
@@ -236,12 +235,60 @@ public class SettingsActivity extends Activity {
             toast("Mots appris effacés");
         });
         data.addView(del);
-        add(data, 0);
+        g.addView(data);
 
         TextView ver = text("Clavier 1.6", 12, 0xFF4A4A52, Ui.regular(this));
         ver.setGravity(Gravity.CENTER);
         ver.setPadding(0, dp(24), 0, 0);
         add(ver, 0);
+    }
+
+    private static final int REQ_EGG_TOKEN = 5, REQ_EGG_31 = 6;
+
+    private void pickImage(int req) {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("image/*");
+        startActivityForResult(i, req);
+    }
+
+    private View spaced(View v) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(8);
+        v.setLayoutParams(lp);
+        return v;
+    }
+
+    private TextView noteView(String s) {
+        TextView t = text(s, 13, Ui.SUB, Ui.regular(this));
+        t.setPadding(dp(8), dp(8), dp(8), 0);
+        t.setLineSpacing(0, 1.15f);
+        return t;
+    }
+
+    /** Collapsible group: header row + hidden content. */
+    private LinearLayout group(String title) {
+        LinearLayout head = card();
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setPadding(dp(18), dp(15), dp(16), dp(15));
+        head.addView(text(title, 16.5f, Ui.TEXT, Ui.semibold(this)), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        TextView chev = text("›", 22, Ui.SUB, Ui.semibold(this));
+        head.addView(chev);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(0, dp(8), 0, dp(4));
+        content.setVisibility(View.GONE);
+        head.setOnClickListener(v -> {
+            boolean show = content.getVisibility() != View.VISIBLE;
+            content.setVisibility(show ? View.VISIBLE : View.GONE);
+            chev.animate().rotation(show ? 90 : 0).setDuration(200).start();
+            if (show) { content.setAlpha(0); content.setTranslationY(-dp(8)); content.animate().alpha(1).translationY(0).setDuration(220).start(); }
+        });
+        head.setOnTouchListener((v, e) -> { Ui.pressBounce(v, e); return false; });
+        add(head, 8);
+        add(content, 0);
+        return content;
     }
 
     private void note(String s) {
@@ -371,6 +418,13 @@ public class SettingsActivity extends Activity {
 
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if ((req == REQ_EGG_TOKEN || req == REQ_EGG_31) && res == RESULT_OK && data != null && data.getData() != null) {
+            try (InputStream in = getContentResolver().openInputStream(data.getData())) {
+                write(in, new File(getFilesDir(), req == REQ_EGG_TOKEN ? "egg_token.png" : "egg_31.png"));
+                toast("Image enregistrée");
+            } catch (Exception e) { toast("Erreur de lecture"); }
+            return;
+        }
         if (req != REQ_FONT || res != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         File tmp = new File(getFilesDir(), "emoji.tmp");

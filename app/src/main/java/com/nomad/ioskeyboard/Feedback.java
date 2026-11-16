@@ -54,10 +54,10 @@ final class Feedback {
         if (sound) {
             if (iosSound && pool != null) {
                 int id = type == Key.DELETE ? sDel : (type == Key.SPACE || type == Key.RETURN || type == Key.SHIFT || type == Key.MODE_NUM) ? sMod : sTap;
-                float vol = 0.45f;
+                float vol = 0.3f;
                 if (audio != null) {
                     int max = audio.getStreamMaxVolume(AudioManager.STREAM_SYSTEM);
-                    if (max > 0) vol = 0.25f + 0.5f * audio.getStreamVolume(AudioManager.STREAM_SYSTEM) / (float) max;
+                    if (max > 0) vol = 0.1f + 0.3f * audio.getStreamVolume(AudioManager.STREAM_SYSTEM) / (float) max;
                 }
                 pool.play(id, vol, vol, 1, 0, 1f);
             } else if (audio != null) {

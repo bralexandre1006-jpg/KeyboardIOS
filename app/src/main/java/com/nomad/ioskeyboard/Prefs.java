@@ -10,7 +10,7 @@ final class Prefs {
             IOS_HAPTIC = "ios_haptic", IOS_SOUND = "ios_sound", SMART_TOUCH = "smart_touch", GLASS = "glass",
             ANIMS = "anims", NEXT_WORD = "next_word", EMOJI_SUGGEST = "emoji_suggest", FR_SPACING = "fr_spacing",
             SHORTCUTS = "shortcuts_on", SWIPE_DOWN = "swipe_down", SHAKE_UNDO = "shake_undo", ONE_HAND = "one_hand",
-            SHORTCUT_LIST = "shortcut_list", KB_TR = "kb_tr", KB_HE = "kb_he", ACTIVE_KB = "active_kb", ICON_POS = "icon_pos";
+            SHORTCUT_LIST = "shortcut_list", KB_TR = "kb_tr", KB_HE = "kb_he", ACTIVE_KB = "active_kb", ICON_POS = "icon_pos", GRAMMAR = "grammar", QUICK_MENU = "quick_menu", SWIPE_CLOSE = "swipe_close", EASTER = "easter";
     static final String DEFAULT_SHORTCUTS = "stp\ts'il te plaît\nsvp\ts'il vous plaît\ntkt\tt'inquiète\njsp\tje sais pas\nbcp\tbeaucoup\npk\tpourquoi\nrdv\trendez-vous\nqqn\tquelqu'un\nqqch\tquelque chose\nauj\taujourd'hui";
 
     static SharedPreferences get(Context c) {
@@ -41,7 +41,7 @@ final class Prefs {
     }
 
     static boolean bool(Context c, String k) {
-        return get(c).getBoolean(k, !BOTTOM_BAR.equals(k) && !DICTATION.equals(k) && !FR_SPACING.equals(k) && !KB_TR.equals(k) && !KB_HE.equals(k));
+        return get(c).getBoolean(k, !BOTTOM_BAR.equals(k) && !DICTATION.equals(k) && !FR_SPACING.equals(k) && !KB_TR.equals(k) && !KB_HE.equals(k) && !SWIPE_CLOSE.equals(k));
     }
 
     static String str(Context c, String k) {

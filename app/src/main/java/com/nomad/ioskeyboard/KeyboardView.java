@@ -39,12 +39,15 @@ public class KeyboardView extends View {
         void onOpenSettings();
         void onNextKeyboard();
         void onMicOption(int index);
+        void onHide();
     }
 
     static final int SHIFT_OFF = 0, SHIFT_ON = 1, SHIFT_LOCK = 2;
     private static final int ST_NONE = 0, ST_PRESS = 1, ST_POPUP = 2, ST_GESTURE = 3, ST_TRACKPAD = 4,
             ST_DELETE = 5, ST_MODE_SLIDE = 6, ST_SUGGEST = 7, ST_BOTTOM = 8, ST_MICMENU = 9;
-    private static final String[] MIC_ITEMS = {"Français", "English", "Türkçe", "עברית"};
+    private static final String[] MIC_LANGS = {"Français", "English", "Türkçe", "עברית"};
+    private String[] MIC_ITEMS = MIC_LANGS;
+    private int[] micActions = {0, 1, 2, 3};
     private int micSel = -1;
     private final RectF micRect = new RectF();
 
@@ -103,11 +106,141 @@ public class KeyboardView extends View {
 
     private static Typeface face;
     private float xRatio = 0.55f, capRatio = 0.73f;
-    boolean iconsTop = true;
-    private boolean builtIconsTop = true;
+    boolean iconsTop = true, quickMenu = true, swipeClose = false;
+    String iconPos = "top";
+
+    // ---------- Easter eggs ----------
+    private int eggType;
+    private long eggStart;
+    private android.graphics.Bitmap eggBitmap;
+    private float[][] eggParts;
+
+    void playEgg(int type, android.graphics.Bitmap bmp) {
+        eggType = type;
+        eggBitmap = bmp;
+        eggStart = SystemClock.uptimeMillis();
+        java.util.Random rnd = new java.util.Random();
+        eggParts = new float[40][];
+        for (int i = 0; i < eggParts.length; i++) {
+            double a = rnd.nextDouble() * Math.PI * 2;
+            float sp = (0.6f + rnd.nextFloat()) * unit * 9f;
+            eggParts[i] = new float[]{(float) Math.cos(a) * sp, (float) Math.sin(a) * sp - unit * 4, 3 + rnd.nextFloat() * 6, rnd.nextFloat() * 360, rnd.nextInt(4)};
+        }
+        invalidate();
+    }
+
+    private void drawEgg(Canvas c) {
+        float t = (SystemClock.uptimeMillis() - eggStart) / 1000f;
+        float dur = eggType == 1 ? 1.5f : 1.9f;
+        if (t > dur) { eggType = 0; eggBitmap = null; return; }
+        float cx = getWidth() / 2f, cy = getHeight() * 0.48f;
+        float size = Math.min(getWidth(), getHeight()) * 0.42f;
+        if (eggType == 1) {
+            if (t < 0.75f) {
+                float k = t / 0.75f;
+                float sc = k < 0.5f ? k * 2.3f : 1.15f - 0.15f * (k - 0.5f) * 2;
+                float shake = k > 0.6f ? (float) Math.sin(t * 90) * unit * 0.12f * (k - 0.6f) * 3 : 0;
+                c.save();
+                c.translate(cx + shake, cy);
+                c.rotate((1 - Math.min(1, k * 1.6f)) * 540);
+                c.scale(sc, sc);
+                fill.setColor(0x55FFD54A);
+                c.drawCircle(0, 0, size * 0.62f * (0.8f + 0.2f * (float) Math.sin(t * 20)), fill);
+                drawToken(c, size);
+                c.restore();
+            } else {
+                float k = (t - 0.75f) / 0.75f;
+                fill.setColor(android.graphics.Color.argb((int) (200 * Math.max(0, 1 - k * 2.5f)), 255, 240, 180));
+                c.drawCircle(cx, cy, size * (0.5f + k * 1.6f), fill);
+                stroke.setStrokeWidth(unit * 0.25f * (1 - k));
+                stroke.setColor(android.graphics.Color.argb((int) (255 * (1 - k)), 255, 200, 60));
+                c.drawCircle(cx, cy, size * (0.3f + k * 1.4f), stroke);
+                int[] cols = {0xFFFFD54A, 0xFFFFA726, 0xFFFFF59D, 0xFFFFFFFF};
+                for (float[] pt : eggParts) {
+                    float x = cx + pt[0] * k, y = cy + pt[1] * k + unit * 14 * k * k;
+                    fill.setColor((cols[(int) pt[4]] & 0x00FFFFFF) | ((int) (255 * (1 - k)) << 24));
+                    c.save();
+                    c.translate(x, y);
+                    c.rotate(pt[3] + k * 720);
+                    float sz = pt[2] * d * (1.2f - k * 0.6f);
+                    c.drawRect(-sz, -sz * 0.5f, sz, sz * 0.5f, fill);
+                    c.restore();
+                }
+            }
+        } else {
+            float k = Math.min(1, t / 0.45f);
+            float bounce = (float) (1 - Math.pow(1 - k, 3) + Math.sin(k * Math.PI) * 0.18);
+            float out = t > dur - 0.35f ? (t - (dur - 0.35f)) / 0.35f : 0;
+            float y = cy + (1 - bounce) * getHeight() * 0.8f + out * getHeight();
+            text.setTypeface(Typeface.DEFAULT_BOLD);
+            text.setTextSize(size * 0.9f);
+            text.setColor(android.graphics.Color.argb((int) (90 * (1 - out)), 255, 61, 139));
+            c.drawText("31", cx, cy + size * 0.32f, text);
+            c.save();
+            c.translate(cx, y);
+            c.rotate((float) Math.sin(t * 9) * 8);
+            float r = size * 0.5f;
+            if (eggBitmap != null) {
+                android.graphics.Path clip = new android.graphics.Path();
+                clip.addCircle(0, 0, r, android.graphics.Path.Direction.CW);
+                c.save();
+                c.clipPath(clip);
+                float bw = eggBitmap.getWidth(), bh = eggBitmap.getHeight(), s2 = 2 * r / Math.min(bw, bh);
+                c.drawBitmap(eggBitmap, null, new RectF(-bw * s2 / 2, -bh * s2 / 2, bw * s2 / 2, bh * s2 / 2), null);
+                c.restore();
+            } else {
+                fill.setColor(0xFFFF3D8B);
+                c.drawCircle(0, 0, r, fill);
+                text.setColor(0xFFFFFFFF);
+                text.setTextSize(r * 0.9f);
+                c.drawText("31", 0, r * 0.32f, text);
+            }
+            stroke.setStrokeWidth(4 * d);
+            stroke.setColor(0xFFFFFFFF);
+            c.drawCircle(0, 0, r, stroke);
+            c.restore();
+            int[] cols = {0xFFFF3D8B, 0xFFFFD54A, 0xFF4ADE80, 0xFF0A84FF};
+            for (float[] pt : eggParts) {
+                float kk = Math.min(1, t / 1.4f);
+                fill.setColor((cols[(int) pt[4]] & 0x00FFFFFF) | ((int) (255 * (1 - kk)) << 24));
+                c.drawCircle(cx + pt[0] * kk, cy + pt[1] * kk + unit * 10 * kk * kk, pt[2] * d * 0.6f, fill);
+            }
+            text.setTypeface(face);
+        }
+        postInvalidateOnAnimation();
+    }
+
+    private void drawToken(Canvas c, float size) {
+        if (eggBitmap != null) {
+            float bw = eggBitmap.getWidth(), bh = eggBitmap.getHeight(), s2 = size / Math.max(bw, bh);
+            c.drawBitmap(eggBitmap, null, new RectF(-bw * s2 / 2, -bh * s2 / 2, bw * s2 / 2, bh * s2 / 2), null);
+            return;
+        }
+        float r = size * 0.5f;
+        Path star = new Path();
+        for (int i = 0; i < 16; i++) {
+            double a = Math.PI * 2 * i / 16 - Math.PI / 2;
+            float rr = i % 4 == 0 ? r : i % 2 == 0 ? r * 0.7f : r * 0.55f;
+            float x = (float) Math.cos(a) * rr, y = (float) Math.sin(a) * rr;
+            if (i == 0) star.moveTo(x, y); else star.lineTo(x, y);
+        }
+        star.close();
+        fill.setShader(new android.graphics.LinearGradient(-r, -r, r, r, 0xFFFFF2B0, 0xFFC98A12, android.graphics.Shader.TileMode.CLAMP));
+        c.drawPath(star, fill);
+        c.drawCircle(0, 0, r * 0.52f, fill);
+        fill.setShader(new android.graphics.RadialGradient(-r * 0.15f, -r * 0.15f, r * 0.45f, 0xFFFFF59D, 0xFFF5A623, android.graphics.Shader.TileMode.CLAMP));
+        c.drawCircle(0, 0, r * 0.42f, fill);
+        fill.setShader(null);
+        text.setTypeface(Typeface.DEFAULT_BOLD);
+        text.setTextSize(r * 0.55f);
+        text.setColor(0xFFFFFFFF);
+        c.drawText("V", 0, r * 0.2f, text);
+        text.setTypeface(face);
+    }
+    private String builtIconPos = "top";
     private final Key iconGlobe = new Key(Key.GLOBE, "", "", 1f), iconMic = new Key(Key.MIC, "", "", 1f);
 
-    private boolean barIcons() { return iconsTop && (showMic || showGlobe) && !searchMode; }
+    private boolean barIcons() { return "top".equals(iconPos) && (showMic || showGlobe) && !searchMode; }
 
     private void layoutBarIcons() {
         float third = getWidth() / 3f;
@@ -209,7 +342,7 @@ public class KeyboardView extends View {
     void applyTheme(Theme t) { theme = t; invalidate(); }
 
     void configure(String layout, int variant, String returnLabel, boolean returnAction, String langLabel) {
-        boolean changed = !layout.equals(layoutName) || variant != this.variant || !returnLabel.equals(this.returnLabel) || builtMic != showMic || builtGlobe != showGlobe || builtIconsTop != iconsTop || !oneHand.equals(builtOneHand);
+        boolean changed = !layout.equals(layoutName) || variant != this.variant || !returnLabel.equals(this.returnLabel) || builtMic != showMic || builtGlobe != showGlobe || !iconPos.equals(builtIconPos) || !oneHand.equals(builtOneHand);
         layoutName = layout; this.variant = variant; this.returnLabel = returnLabel;
         this.returnAction = returnAction; this.langLabel = langLabel;
         feedback.reload();
@@ -288,8 +421,8 @@ public class KeyboardView extends View {
         builtMic = showMic;
         builtGlobe = showGlobe;
         builtOneHand = oneHand;
-        builtIconsTop = iconsTop;
-        rows = Layouts.build(mode, layoutName, variant, returnLabel, showMic && !iconsTop, showGlobe && !iconsTop);
+        builtIconPos = iconPos;
+        rows = Layouts.build(mode, layoutName, variant, returnLabel, showMic && "bottom".equals(iconPos), showGlobe && "bottom".equals(iconPos));
         layoutKeys();
         invalidate();
     }
@@ -419,6 +552,7 @@ public class KeyboardView extends View {
         if (previewKey != null && pState != ST_POPUP) drawPreview(c, previewKey, 1f);
         if (pState == ST_POPUP && popupAlts != null) drawPopup(c);
         if (pState == ST_MICMENU) drawMicMenu(c);
+        if (eggType != 0) drawEgg(c);
     }
 
     private void drawOneHandStrip(Canvas c) {
@@ -1203,6 +1337,12 @@ public class KeyboardView extends View {
 
     private final Runnable micMenuOpen = () -> {
         if (pState != ST_PRESS || pKey == null || pKey.type != Key.MIC) return;
+        MIC_ITEMS = MIC_LANGS;
+        micActions = new int[]{0, 1, 2, 3};
+        openListMenu();
+    };
+
+    private void openListMenu() {
         pState = ST_MICMENU;
         micSel = -1;
         float w = unit * 4.2f, ih = rowH * 0.66f, h = ih * MIC_ITEMS.length + 8 * d;
@@ -1211,7 +1351,7 @@ public class KeyboardView extends View {
         micRect.set(l, t, l + w, t + h);
         feedback.tick();
         invalidate();
-    };
+    }
 
     private final Runnable globeKeyLong = () -> {
         if (pState != ST_PRESS || pKey == null || pKey.type != Key.GLOBE) return;
@@ -1230,6 +1370,19 @@ public class KeyboardView extends View {
 
     private final Runnable openMenu = () -> {
         if (pState != ST_PRESS || pKey == null || pKey.type != Key.EMOJI) return;
+        if ("emoji".equals(iconPos) && (showMic || showGlobe)) {
+            List<String> items = new ArrayList<>();
+            List<Integer> acts = new ArrayList<>();
+            if (showGlobe) { items.add("Langue suivante"); acts.add(10); }
+            if (showMic) { items.add("Dictée"); acts.add(11); }
+            if (quickMenu) { items.add("Réglages rapides"); acts.add(12); }
+            MIC_ITEMS = items.toArray(new String[0]);
+            micActions = new int[acts.size()];
+            for (int i = 0; i < acts.size(); i++) micActions[i] = acts.get(i);
+            openListMenu();
+            return;
+        }
+        if (!quickMenu) return;
         reset();
         menuOpen = true;
         menuPressed = -2;
@@ -1242,6 +1395,11 @@ public class KeyboardView extends View {
         switch (pState) {
             case ST_PRESS:
                 if (pKey.type == Key.SPACE) {
+                    if (swipeClose && y - pDownY > rowH * 0.6f && Math.abs(x - pDownX) < unit * 0.6f) {
+                        reset();
+                        listener.onHide();
+                        return;
+                    }
                     if (Math.abs(x - pDownX) > unit * 0.5f) {
                         handler.removeCallbacks(longPress);
                         startTrackpad();
@@ -1325,6 +1483,7 @@ public class KeyboardView extends View {
             }
             case ST_SUGGEST: {
                 if (searchMode) break;
+                if (swipeClose && y - pDownY > rowH * 0.6f) { reset(); listener.onHide(); return; }
                 int s = y < keysTop + rowH * 0.5f ? Math.min(2, (int) (x / (getWidth() / 3f))) : -1;
                 if (barIcons() && s >= 0) s = s == 0 ? -1 : s - 1;
                 if (s != pressedSug) { pressedSug = s >= 0 && !suggestions[s].isEmpty() ? s : -1; invalidate(); }
@@ -1374,9 +1533,12 @@ public class KeyboardView extends View {
                 }
                 break;
             case ST_MICMENU: {
-                int m = micSel;
+                int m = micSel >= 0 && micSel < micActions.length ? micActions[micSel] : -1;
                 reset();
-                if (m >= 0) listener.onMicOption(m);
+                if (m >= 0 && m < 10) listener.onMicOption(m);
+                else if (m == 10) listener.onNextKeyboard();
+                else if (m == 11) listener.onMic();
+                else if (m == 12) { menuOpen = true; menuPressed = -1; invalidate(); }
                 return;
             }
             case ST_GESTURE: {
