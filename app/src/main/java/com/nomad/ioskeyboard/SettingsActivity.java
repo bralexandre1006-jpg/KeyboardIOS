@@ -150,7 +150,7 @@ public class SettingsActivity extends Activity {
         section("SAISIE");
         grid(new String[][]{{"Correction auto", Prefs.AUTOCORRECT}, {"Prédictions", Prefs.PREDICT},
                 {"Balayer pour écrire", Prefs.SWIPE}, {"Majuscules auto", Prefs.AUTOCAP},
-                {"Point (double espace)", Prefs.DOUBLE_SPACE}, {"Verr. majuscules", Prefs.CAPS_LOCK}});
+                {"Verr. majuscules", Prefs.CAPS_LOCK}});
 
         section("SONS & DICTÉE");
         grid(new String[][]{{"Son des touches", Prefs.SOUND}, {"Vibrations", Prefs.HAPTIC},

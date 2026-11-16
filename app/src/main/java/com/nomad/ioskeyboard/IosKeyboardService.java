@@ -113,7 +113,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         autocorrect = suggest && Prefs.bool(this, Prefs.AUTOCORRECT) && (info.inputType & InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) == 0;
         autocap = Prefs.bool(this, Prefs.AUTOCAP) && !password && !email && !url && !numeric
                 && var != InputType.TYPE_TEXT_VARIATION_FILTER;
-        doubleSpace = Prefs.bool(this, Prefs.DOUBLE_SPACE);
+        doubleSpace = false;
 
         action = info.imeOptions & EditorInfo.IME_MASK_ACTION;
         boolean noEnter = (info.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0;
