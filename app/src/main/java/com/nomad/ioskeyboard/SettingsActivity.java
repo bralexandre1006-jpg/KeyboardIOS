@@ -212,7 +212,7 @@ public class SettingsActivity extends Activity {
 
         section("SONS & DICTÉE");
         grid(new String[][]{{"Son des touches", Prefs.SOUND}, {"Vibrations", Prefs.HAPTIC},
-                {"Dictée (micro)", Prefs.DICTATION}, {"Globe & micro en bas", Prefs.BOTTOM_BAR}});
+                {"Afficher le micro", Prefs.DICTATION}, {"Globe & micro en bas", Prefs.BOTTOM_BAR}});
         TextView tip = text("Astuce : appui long sur 😊 dans le clavier pour les réglages rapides.", 14, Ui.SUB, Ui.regular(this));
         tip.setPadding(dp(6), dp(12), dp(6), 0);
         add(tip, 0);

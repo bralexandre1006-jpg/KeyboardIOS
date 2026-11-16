@@ -743,13 +743,6 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
 
     @Override
     public void onMicOption(int i) {
-        if (i == 4) {
-            Prefs.get(this).edit().putBoolean(Prefs.DICTATION, false).apply();
-            EditorInfo info = getCurrentInputEditorInfo();
-            if (info != null) onStartInputView(info, true);
-            Toast.makeText(this, "Micro masqué (réactivable dans l'app)", Toast.LENGTH_SHORT).show();
-            return;
-        }
         String[] langs = {"fr-FR", "en-US", "tr-TR", "he-IL"};
         Prefs.get(this).edit().putString("dict_lang", langs[i]).apply();
         onMic();

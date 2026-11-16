@@ -44,7 +44,7 @@ public class KeyboardView extends View {
     static final int SHIFT_OFF = 0, SHIFT_ON = 1, SHIFT_LOCK = 2;
     private static final int ST_NONE = 0, ST_PRESS = 1, ST_POPUP = 2, ST_GESTURE = 3, ST_TRACKPAD = 4,
             ST_DELETE = 5, ST_MODE_SLIDE = 6, ST_SUGGEST = 7, ST_BOTTOM = 8, ST_MICMENU = 9;
-    private static final String[] MIC_ITEMS = {"Français", "English", "Türkçe", "עברית", "Masquer le micro"};
+    private static final String[] MIC_ITEMS = {"Français", "English", "Türkçe", "עברית"};
     private int micSel = -1;
     private final RectF micRect = new RectF();
 
@@ -746,8 +746,7 @@ public class KeyboardView extends View {
                 tmp.set(micRect.left + 4 * d, t, micRect.right - 4 * d, t + ih);
                 c.drawRoundRect(tmp, radius, radius, fill);
             }
-            boolean last = i == MIC_ITEMS.length - 1;
-            text.setColor(i == micSel ? theme.accentText : last ? 0xFFFF453A : theme.text);
+            text.setColor(i == micSel ? theme.accentText : theme.text);
             c.drawText(MIC_ITEMS[i], micRect.left + 14 * d, t + ih / 2 - (text.descent() + text.ascent()) / 2, text);
         }
         text.setTextAlign(Paint.Align.CENTER);
