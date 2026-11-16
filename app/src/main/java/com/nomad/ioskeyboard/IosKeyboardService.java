@@ -97,10 +97,11 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
 
     private void loadShortcuts() {
         shortcuts.clear();
-        for (String line : Prefs.str(this, Prefs.SHORTCUT_LIST).split("\n")) {
-            int t = line.indexOf('\t');
-            if (t > 0) shortcuts.put(line.substring(0, t).toLowerCase(), line.substring(t + 1));
-        }
+        for (String key : Prefs.bool(this, Prefs.SHORTCUTS) ? new String[]{Prefs.CORR_LIST, Prefs.SHORTCUT_LIST} : new String[]{Prefs.CORR_LIST})
+            for (String line : Prefs.str(this, key).split("\n")) {
+                int t = line.indexOf('\t');
+                if (t > 0) shortcuts.put(line.substring(0, t).toLowerCase(), line.substring(t + 1));
+            }
     }
 
     private void registerShake(boolean on) {
@@ -224,7 +225,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         keyboard.setLetterProbs(null);
         if (kb.equals("he")) autocap = false;
         frSpacing = Prefs.bool(this, Prefs.FR_SPACING) && kb.equals("latin");
-        shortcutsOn = Prefs.bool(this, Prefs.SHORTCUTS);
+        shortcutsOn = true;
         emojiSuggest = Prefs.bool(this, Prefs.EMOJI_SUGGEST);
         nextWord = Prefs.bool(this, Prefs.NEXT_WORD);
         grammar = Prefs.bool(this, Prefs.GRAMMAR);

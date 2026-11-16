@@ -43,11 +43,16 @@ public class SettingsActivity extends Activity {
     private Ui.GoldButton cta;
     private EditText test;
     private int state;
-    private LinearLayout shortcutCard;
+    private LinearLayout shortcutCard, corrCard;
 
     private void fillShortcuts() {
-        shortcutCard.removeAllViews();
-        String raw = Prefs.str(this, Prefs.SHORTCUT_LIST);
+        fillList(shortcutCard, Prefs.SHORTCUT_LIST, "Raccourci (ex : allah)", "Texte proposé (ex : الله)", "+ Ajouter un raccourci");
+        if (corrCard != null) fillList(corrCard, Prefs.CORR_LIST, "Quand j'écris (ex : mas)", "Remplacer par (ex : pas)", "+ Ajouter une correction");
+    }
+
+    private void fillList(LinearLayout cardView, String key, String hintA, String hintB, String addLabel) {
+        cardView.removeAllViews();
+        String raw = Prefs.str(this, key);
         List<String> lines = new ArrayList<>();
         for (String l : raw.split("\n")) if (l.indexOf('\t') > 0) lines.add(l);
         for (String l : lines) {
@@ -55,46 +60,46 @@ public class SettingsActivity extends Activity {
             LinearLayout row = new LinearLayout(this);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(0, dp(8), 0, dp(8));
-            TextView k = text(l.substring(0, t), 18, Ui.GOLD, Ui.heavy(this));
-            row.addView(k, new LinearLayout.LayoutParams(dp(90), ViewGroup.LayoutParams.WRAP_CONTENT));
-            row.addView(text(l.substring(t + 1), 16, Ui.TEXT, Ui.regular(this)), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            row.addView(text(l.substring(0, t), 18, Ui.GOLD, Ui.heavy(this)), new LinearLayout.LayoutParams(dp(100), ViewGroup.LayoutParams.WRAP_CONTENT));
+            row.addView(text("→  " + l.substring(t + 1), 16, Ui.TEXT, Ui.regular(this)), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
             TextView x = text("✕", 18, Ui.SUB, Ui.semibold(this));
             x.setPadding(dp(12), dp(4), dp(4), dp(4));
             x.setOnClickListener(v -> {
                 List<String> keep = new ArrayList<>(lines);
                 keep.remove(l);
-                Prefs.get(this).edit().putString(Prefs.SHORTCUT_LIST, String.join("\n", keep)).apply();
+                Prefs.get(this).edit().putString(key, String.join("\n", keep)).apply();
                 fillShortcuts();
             });
             row.addView(x);
-            shortcutCard.addView(row);
+            cardView.addView(row);
         }
-        TextView addBtn = link("+ Ajouter un raccourci", Ui.GOLD);
-        addBtn.setOnClickListener(v -> addShortcut());
-        shortcutCard.addView(addBtn);
+        TextView addBtn = link(addLabel, Ui.GOLD);
+        addBtn.setOnClickListener(v -> addEntry(key, hintA, hintB));
+        cardView.addView(addBtn);
     }
 
-    private void addShortcut() {
+    private void addEntry(String key, String hintA, String hintB) {
         LinearLayout f = new LinearLayout(this);
         f.setOrientation(LinearLayout.VERTICAL);
         f.setPadding(dp(20), dp(8), dp(20), 0);
         EditText a = new EditText(this);
-        a.setHint("Raccourci (ex : allah)");
+        a.setHint(hintA);
         EditText b = new EditText(this);
-        b.setHint("Texte proposé (ex : الله)");
+        b.setHint(hintB);
         f.addView(a);
         f.addView(b);
         new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Nouveau raccourci").setView(f)
+                .setTitle(key.equals(Prefs.CORR_LIST) ? "Nouvelle correction" : "Nouveau raccourci").setView(f)
                 .setPositiveButton("Ajouter", (dlg, w) -> {
                     String k = a.getText().toString().trim().toLowerCase(), v = b.getText().toString().trim();
                     if (k.isEmpty() || v.isEmpty() || k.contains(" ")) return;
-                    String raw = Prefs.str(this, Prefs.SHORTCUT_LIST);
-                    Prefs.get(this).edit().putString(Prefs.SHORTCUT_LIST, (raw.isEmpty() ? "" : raw + "\n") + k + "\t" + v).apply();
+                    String raw = Prefs.str(this, key);
+                    Prefs.get(this).edit().putString(key, (raw.isEmpty() ? "" : raw + "\n") + k + "\t" + v).apply();
                     fillShortcuts();
                 })
                 .setNegativeButton("Annuler", null).show();
     }
+
 
     @Override
     @SuppressWarnings("deprecation")
@@ -211,6 +216,11 @@ public class SettingsActivity extends Activity {
         g = group("Easter eggs");
         g.addView(rowCard(new String[][]{{"Activer (jeton, 31)", Prefs.EASTER}}));
         g.addView(noteView("Écrivez « jeton fortnite » ou « 31 » suivi d'un espace pour les déclencher."));
+
+        g = group("Mes corrections");
+        g.addView(noteView("Tes fautes habituelles, corrigées automatiquement à l'espace (ex : mas → pas)."));
+        corrCard = card();
+        g.addView(spaced(corrCard));
 
         g = group("Raccourcis");
         g.addView(noteView("Tapez le raccourci : le texte est proposé dans la barre et remplacé à l'espace (ex : allah → الله)."));

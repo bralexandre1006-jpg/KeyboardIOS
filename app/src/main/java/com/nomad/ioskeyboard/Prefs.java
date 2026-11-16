@@ -11,7 +11,7 @@ final class Prefs {
             ANIMS = "anims", NEXT_WORD = "next_word", EMOJI_SUGGEST = "emoji_suggest", FR_SPACING = "fr_spacing",
             SHORTCUTS = "shortcuts_on", SWIPE_DOWN = "swipe_down", SHAKE_UNDO = "shake_undo", ONE_HAND = "one_hand",
             SHORTCUT_LIST = "shortcut_list", KB_TR = "kb_tr", KB_HE = "kb_he", ACTIVE_KB = "active_kb", ICON_POS = "icon_pos", GRAMMAR = "grammar", QUICK_MENU = "quick_menu", SWIPE_CLOSE = "swipe_close", EASTER = "easter",
-            TR_EMOJI = "tr_emoji", TR_BAR = "tr_bar", TR_RETURN = "tr_return", TR_TARGET = "tr_target", TR_SEND = "tr_send", TR_ONLINE = "tr_online";
+            TR_EMOJI = "tr_emoji", TR_BAR = "tr_bar", TR_RETURN = "tr_return", TR_TARGET = "tr_target", TR_SEND = "tr_send", TR_ONLINE = "tr_online", CORR_LIST = "corr_list";
     static final String DEFAULT_SHORTCUTS = "stp\ts'il te plaît\nsvp\ts'il vous plaît\ntkt\tt'inquiète\njsp\tje sais pas\nbcp\tbeaucoup\npk\tpourquoi\nrdv\trendez-vous\nqqn\tquelqu'un\nqqch\tquelque chose\nauj\taujourd'hui";
 
     static SharedPreferences get(Context c) {
@@ -42,7 +42,7 @@ final class Prefs {
     }
 
     static boolean bool(Context c, String k) {
-        return get(c).getBoolean(k, !BOTTOM_BAR.equals(k) && !DICTATION.equals(k) && !FR_SPACING.equals(k) && !KB_TR.equals(k) && !KB_HE.equals(k) && !SWIPE_CLOSE.equals(k));
+        return get(c).getBoolean(k, !BOTTOM_BAR.equals(k) && !DICTATION.equals(k) && !FR_SPACING.equals(k) && !KB_TR.equals(k) && !KB_HE.equals(k) && !SWIPE_CLOSE.equals(k) && !TR_BAR.equals(k));
     }
 
     static String str(Context c, String k) {
@@ -55,6 +55,7 @@ final class Prefs {
             case ICON_POS: return p.getString(k, "top");
             case TR_TARGET: return p.getString(k, "en");
             case TR_SEND: return p.getString(k, "en,he,tr");
+            case CORR_LIST: return p.getString(k, "mas\tpas");
             case SHORTCUT_LIST: return p.getString(k, DEFAULT_SHORTCUTS);
             default: return p.getString(k, "auto");
         }
