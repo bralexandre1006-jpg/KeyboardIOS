@@ -480,4 +480,53 @@ final class Ui {
             c.drawCircle(r.left + sh / 2 + (sw - sh) * t, r.centerY(), sh / 2 - 3 * d, p);
         }
     }
+
+    /** iOS-settings style navigation row: colored icon, label, value, chevron. */
+    static final class NavRow extends View {
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final String glyph, label;
+        private final int color;
+        private final float d;
+        private boolean pressed;
+
+        NavRow(Context c, int color, String glyph, String label) {
+            super(c);
+            this.color = color; this.glyph = glyph; this.label = label;
+            d = getResources().getDisplayMetrics().density;
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent e) {
+            if (e.getAction() == MotionEvent.ACTION_DOWN) { pressed = true; invalidate(); }
+            else if (e.getAction() == MotionEvent.ACTION_UP || e.getAction() == MotionEvent.ACTION_CANCEL) { pressed = false; invalidate(); }
+            return super.onTouchEvent(e);
+        }
+
+        @Override protected void onMeasure(int w, int h) {
+            setMeasuredDimension(MeasureSpec.getSize(w), (int) (56 * d));
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            float w = getWidth(), h = getHeight();
+            if (pressed) { p.setColor(0x16FFFFFF); c.drawRect(0, 0, w, h, p); }
+            float s = 30 * d, x = 14 * d, y = (h - s) / 2;
+            p.setColor(color);
+            c.drawRoundRect(new RectF(x, y, x + s, y + s), 8 * d, 8 * d, p);
+            p.setColor(0xFFFFFFFF);
+            p.setTextAlign(Paint.Align.CENTER);
+            p.setTypeface(Typeface.DEFAULT_BOLD);
+            p.setTextSize(15 * d);
+            c.drawText(glyph, x + s / 2, h / 2 - (p.descent() + p.ascent()) / 2, p);
+            p.setTextAlign(Paint.Align.LEFT);
+            p.setTypeface(regular(getContext()));
+            p.setTextSize(16.5f * d);
+            p.setColor(TEXT);
+            c.drawText(label, x + s + 14 * d, h / 2 - (p.descent() + p.ascent()) / 2, p);
+            p.setColor(0xFF5A5A62);
+            p.setStrokeWidth(2.2f * d);
+            p.setStrokeCap(Paint.Cap.ROUND);
+            float cx = w - 20 * d, cy = h / 2;
+            c.drawLine(cx - 4 * d, cy - 6 * d, cx + 2 * d, cy, p);
+            c.drawLine(cx + 2 * d, cy, cx - 4 * d, cy + 6 * d, p);
+        }
+    }
 }

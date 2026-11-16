@@ -46,7 +46,7 @@ public class SettingsActivity extends Activity {
     private LinearLayout shortcutCard, corrCard;
 
     private void fillShortcuts() {
-        fillList(shortcutCard, Prefs.SHORTCUT_LIST, "Raccourci (ex : allah)", "Texte proposé (ex : الله)", "+ Ajouter un raccourci");
+        if (shortcutCard != null) fillList(shortcutCard, Prefs.SHORTCUT_LIST, "Raccourci (ex : allah)", "Texte proposé (ex : الله)", "+ Ajouter un raccourci");
         if (corrCard != null) fillList(corrCard, Prefs.CORR_LIST, "Quand j'écris (ex : mas)", "Remplacer par (ex : pas)", "+ Ajouter une correction");
     }
 
@@ -123,6 +123,8 @@ public class SettingsActivity extends Activity {
         sv.addView(box);
         root.addView(sv);
         setContentView(root);
+        rootView = root;
+        mainView = sv;
 
         build();
 
@@ -173,62 +175,176 @@ public class SettingsActivity extends Activity {
         hero.addView(cta, clp);
         add(hero, 0);
 
-        section("ESSENTIEL");
-        rows(new String[][]{{"Correction automatique", Prefs.AUTOCORRECT}, {"Prédictions", Prefs.PREDICT},
-                {"Son des touches", Prefs.SOUND}, {"Vibrations", Prefs.HAPTIC}}, 0);
-        add(pills(Prefs.THEME, new String[]{"auto", "light", "dark"}, new String[]{"Auto", "Clair", "Sombre"}), 10);
-        add(pills(Prefs.LAYOUT, new String[]{"azerty", "qwerty"}, new String[]{"AZERTY", "QWERTY"}), 8);
+        section("RÉGLAGES");
+        LinearLayout nav = card();
+        nav.setPadding(0, dp(4), 0, dp(4));
+        navRow(nav, 0xFFFF3D8B, "⌨", "Clavier", this::pageKeyboard, true);
+        navRow(nav, 0xFF0A84FF, "✓", "Correction et saisie", this::pageTyping, true);
+        navRow(nav, 0xFFFF453A, "♪", "Sons et vibrations", this::pageSounds, true);
+        navRow(nav, 0xFFFF9F0A, "◎", "Globe, micro et emoji", this::pageIcons, false);
+        add(nav, 0);
 
-        section("PLUS DE RÉGLAGES");
-        LinearLayout g = group("Langues");
-        g.addView(pills(Prefs.LANG, new String[]{"fr_en", "fr", "en"}, new String[]{"FR + EN", "Français", "English"}));
-        g.addView(spaced(rowCard(new String[][]{{"Clavier turc", Prefs.KB_TR}, {"Clavier hébreu", Prefs.KB_HE}})));
+        section("OUTILS");
+        LinearLayout nav2 = card();
+        nav2.setPadding(0, dp(4), 0, dp(4));
+        navRow(nav2, 0xFFBF5AF2, "文", "Traduction", this::pageTranslate, true);
+        navRow(nav2, 0xFF30D158, "✎", "Mes corrections", this::pageCorrections, true);
+        navRow(nav2, 0xFF64D2FF, "⚡", "Raccourcis", this::pageShortcuts, false);
+        add(nav2, 0);
 
-        g = group("Globe, micro et emoji");
-        g.addView(pills(Prefs.ICON_POS, new String[]{"top", "bottom", "emoji"}, new String[]{"En haut", "En bas", "Sur 😊"}));
-        g.addView(spaced(rowCard(new String[][]{{"Afficher le micro", Prefs.DICTATION}, {"Réglages rapides (appui 😊)", Prefs.QUICK_MENU}})));
-        g.addView(noteView("« Sur 😊 » : appui long sur la touche emoji pour le globe et le micro, sans prendre de place."));
+        section("PLUS");
+        LinearLayout nav3 = card();
+        nav3.setPadding(0, dp(4), 0, dp(4));
+        navRow(nav3, 0xFF5E5CE6, "✦", "Effets et apparence", this::pageEffects, true);
+        navRow(nav3, 0xFFFFD60A, "★", "Easter eggs", this::pageEggs, true);
+        navRow(nav3, 0xFF8E8E93, "⋯", "Données", this::pageData, false);
+        add(nav3, 0);
 
-        g = group("Traduction");
-        g.addView(noteView("Langue de traduction"));
-        g.addView(spaced(pills(Prefs.TR_TARGET, new String[]{"en", "he", "tr", "ar", "es"}, new String[]{"EN", "HE", "TR", "AR", "ES"})));
-        g.addView(spaced(rowCard(new String[][]{{"Traduire dans le menu 😊", Prefs.TR_EMOJI}, {"Icône 文A dans la barre", Prefs.TR_BAR},
-                {"Appui long sur Envoyer", Prefs.TR_RETURN}, {"Traduction en ligne (meilleure)", Prefs.TR_ONLINE}})));
-        g.addView(noteView("Langues proposées à l'appui long sur Envoyer"));
-        g.addView(spaced(sendLangCard()));
-        g.addView(noteView("Mode traduction : la pastille rose change la langue (appui long pour arrêter), touchez la traduction pour l'insérer. Envoyer envoie le texte traduit. La 1re fois, la langue se télécharge (~30 Mo)."));
+        TextView ver = text("Clavier 1.7", 12, 0xFF4A4A52, Ui.regular(this));
+        ver.setGravity(Gravity.CENTER);
+        ver.setPadding(0, dp(24), 0, 0);
+        add(ver, 0);
+    }
 
-        g = group("Saisie");
-        g.addView(rowCard(new String[][]{{"Orthographe a / à", Prefs.GRAMMAR}, {"Balayer pour écrire", Prefs.SWIPE},
-                {"Majuscules automatiques", Prefs.AUTOCAP}, {"Verrouillage majuscules", Prefs.CAPS_LOCK},
-                {"Mot suivant", Prefs.NEXT_WORD}, {"Emoji suggérés", Prefs.EMOJI_SUGGEST}, {"Raccourcis", Prefs.SHORTCUTS},
-                {"Glisser ↓ pour un chiffre", Prefs.SWIPE_DOWN}, {"Glisser vers le bas pour fermer", Prefs.SWIPE_CLOSE},
-                {"Espace avant ? ! :", Prefs.FR_SPACING}}));
+    private static final int REQ_EGG_TOKEN = 5, REQ_EGG_31 = 6;
+    interface Page { void build(LinearLayout c); }
+    private FrameLayout rootView;
+    private View mainView, pageView;
 
-        g = group("Sons et effets");
-        g.addView(rowCard(new String[][]{{"Sons iPhone", Prefs.IOS_SOUND}, {"Vibrations iPhone", Prefs.IOS_HAPTIC},
-                {"Frappe intelligente", Prefs.SMART_TOUCH}, {"Effet verre", Prefs.GLASS}, {"Animations", Prefs.ANIMS},
-                {"Secouer pour annuler", Prefs.SHAKE_UNDO}}));
+    private void navRow(LinearLayout parent, int color, String glyph, String label, Page page, boolean sep) {
+        Ui.NavRow r = new Ui.NavRow(this, color, glyph, label);
+        r.setOnClickListener(v -> openPage(label, page));
+        parent.addView(r);
+        if (sep) {
+            View line = new View(this);
+            line.setBackgroundColor(0xFF26262B);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, dp(0.6f)));
+            lp.leftMargin = dp(58);
+            parent.addView(line, lp);
+        }
+    }
 
-        g = group("Clavier à une main");
-        g.addView(pills(Prefs.ONE_HAND, new String[]{"left", "off", "right"}, new String[]{"Gauche", "Normal", "Droite"}));
+    private void openPage(String title, Page page) {
+        if (pageView != null) return;
+        FrameLayout pg = new FrameLayout(this);
+        pg.setBackgroundColor(Ui.BG);
+        pg.setClickable(true);
+        ScrollView sv = new ScrollView(this);
+        sv.setFitsSystemWindows(true);
+        sv.setVerticalScrollBarEnabled(false);
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setPadding(dp(18), dp(6), dp(18), dp(48));
+        TextView back = text("‹  Réglages", 17, Ui.GOLD, Ui.semibold(this));
+        back.setPadding(0, dp(12), dp(20), dp(8));
+        back.setOnClickListener(v -> closePage());
+        c.addView(back, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView t = text(title, 30, Ui.TEXT, Ui.heavy(this));
+        t.setPadding(dp(2), dp(4), 0, dp(14));
+        c.addView(t);
+        page.build(c);
+        sv.addView(c);
+        pg.addView(sv);
+        rootView.addView(pg, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        pageView = pg;
+        float w = rootView.getWidth();
+        pg.setTranslationX(w);
+        pg.animate().translationX(0).setDuration(260).setInterpolator(new DecelerateInterpolator(2f)).start();
+        mainView.animate().translationX(-w * 0.25f).alpha(0.4f).setDuration(260).setInterpolator(new DecelerateInterpolator(2f)).start();
+    }
 
-        g = group("Easter eggs");
-        g.addView(rowCard(new String[][]{{"Activer (jeton, 31)", Prefs.EASTER}}));
-        g.addView(noteView("Écrivez « jeton fortnite » ou « 31 » suivi d'un espace pour les déclencher."));
+    private void closePage() {
+        View pg = pageView;
+        if (pg == null) return;
+        pageView = null;
+        float w = rootView.getWidth();
+        pg.animate().translationX(w).setDuration(220).setInterpolator(new DecelerateInterpolator(1.5f)).withEndAction(() -> rootView.removeView(pg)).start();
+        mainView.animate().translationX(0).alpha(1f).setDuration(220).setInterpolator(new DecelerateInterpolator(1.5f)).start();
+        shortcutCard = null; corrCard = null;
+    }
 
-        g = group("Mes corrections");
-        g.addView(noteView("Tes fautes habituelles, corrigées automatiquement à l'espace (ex : mas → pas)."));
+    @Override
+    public void onBackPressed() {
+        if (pageView != null) closePage(); else super.onBackPressed();
+    }
+
+    private void label(LinearLayout c, String s) {
+        TextView t = text(s, 12.5f, Ui.SUB, Ui.semibold(this));
+        t.setLetterSpacing(0.2f);
+        t.setPadding(dp(8), dp(18), 0, dp(8));
+        c.addView(t);
+    }
+
+    private void pageKeyboard(LinearLayout c) {
+        label(c, "APPARENCE");
+        c.addView(pills(Prefs.THEME, new String[]{"auto", "light", "dark"}, new String[]{"Auto", "Clair", "Sombre"}));
+        label(c, "DISPOSITION");
+        c.addView(pills(Prefs.LAYOUT, new String[]{"azerty", "qwerty"}, new String[]{"AZERTY", "QWERTY"}));
+        label(c, "LANGUES");
+        c.addView(pills(Prefs.LANG, new String[]{"fr_en", "fr", "en"}, new String[]{"FR + EN", "Français", "English"}));
+        c.addView(spaced(rowCard(new String[][]{{"Clavier turc", Prefs.KB_TR}, {"Clavier hébreu", Prefs.KB_HE}})));
+        label(c, "UNE MAIN");
+        c.addView(pills(Prefs.ONE_HAND, new String[]{"left", "off", "right"}, new String[]{"Gauche", "Normal", "Droite"}));
+    }
+
+    private void pageTyping(LinearLayout c) {
+        c.addView(rowCard(new String[][]{{"Correction automatique", Prefs.AUTOCORRECT}, {"Prédictions", Prefs.PREDICT},
+                {"Orthographe a / à", Prefs.GRAMMAR}, {"Majuscules automatiques", Prefs.AUTOCAP}, {"Verrouillage majuscules", Prefs.CAPS_LOCK}}));
+        label(c, "GESTES");
+        c.addView(rowCard(new String[][]{{"Balayer pour écrire", Prefs.SWIPE}, {"Glisser ↓ pour un chiffre", Prefs.SWIPE_DOWN},
+                {"Glisser vers le bas pour fermer", Prefs.SWIPE_CLOSE}}));
+        label(c, "SUGGESTIONS");
+        c.addView(rowCard(new String[][]{{"Mot suivant", Prefs.NEXT_WORD}, {"Emoji suggérés", Prefs.EMOJI_SUGGEST}, {"Espace avant ? ! :", Prefs.FR_SPACING}}));
+    }
+
+    private void pageSounds(LinearLayout c) {
+        c.addView(rowCard(new String[][]{{"Son des touches", Prefs.SOUND}, {"Vibrations", Prefs.HAPTIC},
+                {"Sons iPhone", Prefs.IOS_SOUND}, {"Vibrations iPhone", Prefs.IOS_HAPTIC}}));
+    }
+
+    private void pageIcons(LinearLayout c) {
+        label(c, "EMPLACEMENT DU GLOBE ET DU MICRO");
+        c.addView(pills(Prefs.ICON_POS, new String[]{"top", "bottom", "emoji"}, new String[]{"En haut", "En bas", "Sur 😊"}));
+        c.addView(spaced(rowCard(new String[][]{{"Afficher le micro", Prefs.DICTATION}, {"Réglages rapides (appui 😊)", Prefs.QUICK_MENU}})));
+        c.addView(noteView("En haut : à la place d'une suggestion. Sur 😊 : appui long sur la touche emoji. Appui long sur le micro pour la langue de dictée."));
+    }
+
+    private void pageTranslate(LinearLayout c) {
+        label(c, "LANGUE DE TRADUCTION");
+        c.addView(pills(Prefs.TR_TARGET, new String[]{"en", "he", "tr", "ar", "es"}, new String[]{"EN", "HE", "TR", "AR", "ES"}));
+        label(c, "ACCÈS");
+        c.addView(rowCard(new String[][]{{"Traduire dans le menu 😊", Prefs.TR_EMOJI}, {"Icône 文A dans la barre", Prefs.TR_BAR},
+                {"Appui long sur Envoyer", Prefs.TR_RETURN}, {"Traduction en ligne (meilleure)", Prefs.TR_ONLINE}}));
+        label(c, "LANGUES À L'APPUI LONG SUR ENVOYER");
+        c.addView(sendLangCard());
+    }
+
+    private void pageCorrections(LinearLayout c) {
+        c.addView(noteView("Tes fautes habituelles, corrigées automatiquement à l'espace (ex : mas → pas)."));
         corrCard = card();
-        g.addView(spaced(corrCard));
-
-        g = group("Raccourcis");
-        g.addView(noteView("Tapez le raccourci : le texte est proposé dans la barre et remplacé à l'espace (ex : allah → الله)."));
-        shortcutCard = card();
-        g.addView(spaced(shortcutCard));
+        c.addView(spaced(corrCard));
         fillShortcuts();
+    }
 
-        g = group("Données");
+    private void pageShortcuts(LinearLayout c) {
+        c.addView(rowCard(new String[][]{{"Activer les raccourcis", Prefs.SHORTCUTS}}));
+        c.addView(noteView("Tapez le raccourci : le texte est proposé dans la barre et remplacé à l'espace (ex : allah → الله)."));
+        shortcutCard = card();
+        c.addView(spaced(shortcutCard));
+        fillShortcuts();
+    }
+
+    private void pageEffects(LinearLayout c) {
+        c.addView(rowCard(new String[][]{{"Effet verre", Prefs.GLASS}, {"Animations", Prefs.ANIMS},
+                {"Frappe intelligente", Prefs.SMART_TOUCH}, {"Secouer pour annuler", Prefs.SHAKE_UNDO}}));
+    }
+
+    private void pageEggs(LinearLayout c) {
+        c.addView(rowCard(new String[][]{{"Activer les easter eggs", Prefs.EASTER}}));
+        c.addView(noteView("Écrivez « jeton fortnite » ou « 31 » suivi d'un espace."));
+    }
+
+    private void pageData(LinearLayout c) {
         LinearLayout data = card();
         data.setPadding(dp(18), dp(4), dp(18), dp(4));
         TextView mic = link("Autoriser le micro", Ui.GOLD);
@@ -243,15 +359,8 @@ public class SettingsActivity extends Activity {
             toast("Mots appris effacés");
         });
         data.addView(del);
-        g.addView(data);
-
-        TextView ver = text("Clavier 1.6", 12, 0xFF4A4A52, Ui.regular(this));
-        ver.setGravity(Gravity.CENTER);
-        ver.setPadding(0, dp(24), 0, 0);
-        add(ver, 0);
+        c.addView(data);
     }
-
-    private static final int REQ_EGG_TOKEN = 5, REQ_EGG_31 = 6;
 
     private void pickImage(int req) {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
