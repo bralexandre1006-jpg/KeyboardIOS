@@ -100,9 +100,10 @@ final class Layouts {
             r4.add(chr("@", 1f));
             r4.add(chr(".", 1f));
         } else if (variant == VAR_URL) {
-            r4.add(chr(".", 1.4f));
-            r4.add(chr("/", 1.4f));
-            r4.add(chr(".com", 2.2f + spaceCut));
+            r4.add(new Key(Key.SPACE, "espace", " ", 3.5f + spaceCut));
+            Key dot = chr(".", 1.5f);
+            dot.alts = new String[]{".", ".com", ".fr", "/", ".net", ".org"};
+            r4.add(dot);
         } else if (mic) {
             r4.add(new Key(Key.MIC, "", "", 1.25f));
             r4.add(new Key(Key.SPACE, "espace", " ", 3.75f + spaceCut));

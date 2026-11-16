@@ -191,8 +191,8 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         variant = email ? Layouts.VAR_EMAIL : url ? Layouts.VAR_URL : Layouts.VAR_TEXT;
 
         predict = Prefs.bool(this, Prefs.PREDICT);
-        suggest = predict && !password && !email && !url && !numeric && cls != 0;
-        autocorrect = suggest && Prefs.bool(this, Prefs.AUTOCORRECT);
+        suggest = predict && !password && !email && !numeric && cls != 0;
+        autocorrect = suggest && !url && Prefs.bool(this, Prefs.AUTOCORRECT);
         autocap = Prefs.bool(this, Prefs.AUTOCAP) && !password && !email && !url && !numeric
                 && var != InputType.TYPE_TEXT_VARIATION_FILTER;
         doubleSpace = false;
