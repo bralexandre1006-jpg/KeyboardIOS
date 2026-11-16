@@ -341,6 +341,12 @@ class Dictionary {
         if (best < 0) { if (split != null) lastConfident = true; return split; }
         float bd = distance(k, keys[best], max);
         boolean clear = secondScore - bestScore > 0.12f;
+        if (len <= 3) {
+            lastConfident = secondScore - bestScore > 0.005f && bd <= 0.6f && freq[best] >= 0.6f && keys[best].length() == len
+                    && Character.isLetter(words[best].charAt(words[best].length() - 1))
+                    && !(enOnly != null && enOnly.get(best));
+            return words[best];
+        }
         lastConfident = (vowel || bd <= 0.6f) && len >= 4 && clear && (bd <= 0.6f || (bd <= 1.05f && freq[best] >= 0.4f)
                 || (bd <= 1.6f && len >= 7 && freq[best] >= 0.4f) || (len >= 9 && bd <= len * 0.3f && freq[best] >= 0.3f));
         if (!lastConfident && split != null) { lastConfident = true; return split; }

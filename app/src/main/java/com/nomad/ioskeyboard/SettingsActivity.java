@@ -298,10 +298,9 @@ public class SettingsActivity extends Activity {
         head.setOnClickListener(v -> {
             boolean show = content.getVisibility() != View.VISIBLE;
             content.setVisibility(show ? View.VISIBLE : View.GONE);
-            chev.animate().rotation(show ? 90 : 0).setDuration(200).start();
-            if (show) { content.setAlpha(0); content.setTranslationY(-dp(8)); content.animate().alpha(1).translationY(0).setDuration(220).start(); }
+            chev.setRotation(show ? 90 : 0);
+            if (show) { content.setAlpha(0f); content.animate().alpha(1f).setDuration(120).start(); }
         });
-        head.setOnTouchListener((v, e) -> { Ui.pressBounce(v, e); return false; });
         add(head, 8);
         add(content, 0);
         return content;
