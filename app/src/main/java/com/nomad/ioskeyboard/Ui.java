@@ -259,34 +259,95 @@ final class Ui {
         }
     }
 
-    /** App logo: gold keyboard tile. */
+    /** Keyboard logo geometry (relative to a 2:1 box). */
+    private static final float[][] LOGO_KEYS = {
+            {0.081f, 0.199f, 0.186f, 0.357f}, {0.212f, 0.199f, 0.309f, 0.357f}, {0.333f, 0.199f, 0.428f, 0.357f},
+            {0.455f, 0.199f, 0.551f, 0.357f}, {0.577f, 0.199f, 0.672f, 0.357f}, {0.697f, 0.199f, 0.793f, 0.357f},
+            {0.819f, 0.199f, 0.920f, 0.357f},
+            {0.084f, 0.409f, 0.232f, 0.585f}, {0.260f, 0.409f, 0.399f, 0.585f}, {0.426f, 0.409f, 0.564f, 0.585f},
+            {0.599f, 0.409f, 0.740f, 0.585f}, {0.768f, 0.409f, 0.916f, 0.585f},
+            {0.084f, 0.643f, 0.209f, 0.813f}, {0.235f, 0.643f, 0.764f, 0.813f}, {0.791f, 0.643f, 0.916f, 0.813f}};
+    private static final String[] LOGO_LETTERS = {null, null, null, null, null, null, null, null, "R", "S", "T", null, null, null, null};
+
+    /** Draws the keyboard logo in box (l,t,w) with w:h = 2:1. progress 0..1 builds it key by key. */
+    static void drawLogo(Canvas c, Paint p, float l, float t, float w, float progress, int fg, int bg) {
+        float h = w / 2f;
+        float outline = Math.min(1f, progress / 0.18f);
+        if (outline <= 0) return;
+        p.setShader(null);
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(fg);
+        p.setAlpha((int) (255 * outline));
+        float r = w * 0.105f, th = w * 0.04f;
+        float sc0 = 0.9f + 0.1f * outline;
+        c.save();
+        c.scale(sc0, sc0, l + w / 2, t + h / 2);
+        c.drawRoundRect(new RectF(l, t, l + w, t + h), r, r, p);
+        p.setColor(bg);
+        p.setAlpha(255);
+        c.drawRoundRect(new RectF(l + th, t + th, l + w - th, t + h - th), r - th, r - th, p);
+        c.restore();
+        int n = LOGO_KEYS.length;
+        for (int i = 0; i < n; i++) {
+            float start = 0.15f + i * 0.045f;
+            float k = Math.max(0f, Math.min(1f, (progress - start) / 0.12f));
+            if (k <= 0) continue;
+            float sc = k < 0.7f ? k / 0.7f * 1.15f : 1.15f - 0.15f * (k - 0.7f) / 0.3f;
+            float[] q = LOGO_KEYS[i];
+            float x0 = l + q[0] * w, y0 = t + q[1] * h, x1 = l + q[2] * w, y1 = t + q[3] * h;
+            float cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+            c.save();
+            c.scale(sc, sc, cx, cy);
+            p.setColor(fg);
+            float kr = w * 0.016f;
+            c.drawRoundRect(new RectF(x0, y0, x1, y1), kr, kr, p);
+            if (LOGO_LETTERS[i] != null) {
+                p.setColor(bg);
+                p.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD_ITALIC));
+                p.setTextAlign(Paint.Align.CENTER);
+                p.setTextSize((y1 - y0) * 0.62f);
+                c.drawText(LOGO_LETTERS[i], cx, cy - (p.descent() + p.ascent()) / 2, p);
+            }
+            c.restore();
+        }
+    }
+
+    /** App logo (static). */
     static final class Logo extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         Logo(Context c) { super(c); }
 
         @Override protected void onDraw(Canvas c) {
-            float s = Math.min(getWidth(), getHeight());
-            float ox = (getWidth() - s) / 2, oy = (getHeight() - s) / 2;
-            p.setShader(new LinearGradient(ox, oy, ox + s, oy + s, GOLD_A, GOLD_B, Shader.TileMode.CLAMP));
-            c.drawRoundRect(new RectF(ox, oy, ox + s, oy + s), s * 0.28f, s * 0.28f, p);
-            p.setShader(null);
-            p.setColor(0xFFFFFFFF);
-            float pad = s * 0.17f, gap = s * 0.05f;
-            float kw = (s - 2 * pad - 3 * gap) / 4, kh = s * 0.13f;
-            float top = oy + s * 0.25f;
-            int[] counts = {4, 3};
-            for (int r = 0; r < 2; r++) {
-                float rowW = counts[r] * kw + (counts[r] - 1) * gap;
-                float x = ox + (s - rowW) / 2;
-                for (int i = 0; i < counts[r]; i++) {
-                    c.drawRoundRect(new RectF(x, top, x + kw, top + kh), kh * 0.3f, kh * 0.3f, p);
-                    x += kw + gap;
-                }
-                top += kh + gap;
-            }
-            float sw = s * 0.5f;
-            c.drawRoundRect(new RectF(ox + (s - sw) / 2, top, ox + (s + sw) / 2, top + kh), kh * 0.3f, kh * 0.3f, p);
+            float w = Math.min(getWidth(), getHeight() * 2f);
+            drawLogo(c, p, (getWidth() - w) / 2, (getHeight() - w / 2) / 2, w, 1f, 0xFFFFFFFF, BG);
+        }
+    }
+
+    /** Launch animation: the keyboard logo builds key by key. */
+    static final class LogoBuild extends View {
+        interface OnDone { void done(); }
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private float progress;
+        private OnDone onDone;
+
+        LogoBuild(Context c) { super(c); }
+
+        void start(OnDone d) {
+            onDone = d;
+            ValueAnimator a = ValueAnimator.ofFloat(0f, 1f);
+            a.setDuration(950);
+            a.setInterpolator(new android.view.animation.LinearInterpolator());
+            a.addUpdateListener(v -> { progress = (float) v.getAnimatedValue(); invalidate(); });
+            a.addListener(new android.animation.AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(android.animation.Animator an) { if (onDone != null) onDone.done(); }
+            });
+            a.start();
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            float w = Math.min(getWidth() * 0.62f, getHeight() * 2f);
+            drawLogo(c, p, (getWidth() - w) / 2, (getHeight() - w / 2) / 2, w, progress, 0xFFFFFFFF, BG);
         }
     }
 

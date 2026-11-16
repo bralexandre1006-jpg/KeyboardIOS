@@ -140,7 +140,7 @@ public class SettingsActivity extends Activity {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(dp(2), dp(14), 0, dp(16));
-        head.addView(new Ui.Logo(this), new LinearLayout.LayoutParams(dp(46), dp(46)));
+        head.addView(new Ui.Logo(this), new LinearLayout.LayoutParams(dp(64), dp(32)));
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
         titles.setPadding(dp(12), 0, 0, 0);
@@ -458,44 +458,24 @@ public class SettingsActivity extends Activity {
     // ---------- Intro: a keyboard typing the title ----------
 
     private void playIntro(FrameLayout root) {
-        for (View v : blocks) { v.setAlpha(0); v.setTranslationY(dp(40)); }
+        for (View v : blocks) { v.setAlpha(0); v.setTranslationY(dp(24)); }
         FrameLayout splash = new FrameLayout(this);
         splash.setBackgroundColor(Ui.BG);
         splash.setClickable(true);
-        LinearLayout col = new LinearLayout(this);
-        col.setOrientation(LinearLayout.VERTICAL);
-        col.setGravity(Gravity.CENTER_HORIZONTAL);
-        Ui.TypingKeyboard kb = new Ui.TypingKeyboard(this, new String[]{"Clavier iOS"}, false, true, 40);
-        col.addView(kb, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(330)));
-        TextView tag = text("ÉCRIVEZ COMME SUR IPHONE", 14, Ui.GOLD, Ui.semibold(this));
-        tag.setLetterSpacing(0.22f);
-        tag.setAlpha(0);
-        tag.setPadding(0, dp(18), 0, 0);
-        col.addView(tag);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
-        lp.leftMargin = lp.rightMargin = dp(22);
-        splash.addView(col, lp);
+        Ui.LogoBuild logo = new Ui.LogoBuild(this);
+        splash.addView(logo, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(splash, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
-        kb.setAlpha(0);
-        kb.setTranslationY(dp(60));
-        kb.animate().alpha(1).translationY(0).setDuration(500).setInterpolator(new DecelerateInterpolator(2f)).start();
         boolean[] gone = {false};
         Runnable finish = () -> {
             if (gone[0]) return;
             gone[0] = true;
-            splash.animate().alpha(0).setDuration(420).withEndAction(() -> root.removeView(splash)).start();
-            col.animate().translationY(-dp(80)).scaleX(0.92f).scaleY(0.92f).setDuration(420).start();
+            splash.animate().alpha(0).scaleX(1.08f).scaleY(1.08f).setDuration(260).withEndAction(() -> root.removeView(splash)).start();
             for (int i = 0; i < blocks.size(); i++)
-                blocks.get(i).animate().alpha(1).translationY(0).setStartDelay(150 + i * 50L)
-                        .setDuration(520).setInterpolator(new DecelerateInterpolator(2.2f)).start();
+                blocks.get(i).animate().alpha(1).translationY(0).setStartDelay(60 + i * 30L)
+                        .setDuration(360).setInterpolator(new DecelerateInterpolator(2f)).start();
         };
-        kb.setOnDone(() -> {
-            tag.animate().alpha(1).setDuration(300).start();
-            splash.postDelayed(finish, 700);
-        });
         splash.setOnClickListener(v -> finish.run());
-        kb.start(550);
+        logo.start(() -> splash.postDelayed(finish, 150));
     }
 
     // ---------- State ----------
