@@ -188,7 +188,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         boolean url = cls == InputType.TYPE_CLASS_TEXT && var == InputType.TYPE_TEXT_VARIATION_URI;
         numeric = cls == InputType.TYPE_CLASS_NUMBER || cls == InputType.TYPE_CLASS_PHONE || cls == InputType.TYPE_CLASS_DATETIME;
         multiline = (info.inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
-        variant = email ? Layouts.VAR_EMAIL : url ? Layouts.VAR_URL : Layouts.VAR_TEXT;
+        variant = email ? Layouts.VAR_EMAIL : Layouts.VAR_TEXT;
 
         predict = Prefs.bool(this, Prefs.PREDICT);
         suggest = predict && !password && !email && !numeric && cls != 0;

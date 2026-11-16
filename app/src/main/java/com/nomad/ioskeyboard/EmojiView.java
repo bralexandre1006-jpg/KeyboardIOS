@@ -105,8 +105,15 @@ public class EmojiView extends View {
         emoji.setTypeface(tf);
         grey.setTypeface(tf);
         cats = EmojiData.get(getContext());
-        shownRecents.clear(); shownRecents.addAll(recents);
-        shownSkin.clear(); shownSkin.addAll(recentSkin);
+        shownRecents.clear();
+        shownSkin.clear();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (int i = 0; i < recents.size(); i++) {
+            String e = recents.get(i);
+            if (e.isEmpty() || !emoji.hasGlyph(e) || !seen.add(e)) continue;
+            shownRecents.add(e);
+            shownSkin.add(recentSkin.get(i));
+        }
         layoutContent();
         invalidate();
     }
@@ -183,13 +190,13 @@ public class EmojiView extends View {
         barTop = bottomTop - barH;
         gridTop = titleH;
         cellH = (barTop - gridTop - 2 * d) / ROWS;
-        cellW = (w - 2 * side) / (land ? 13f : 7.6f);
+        cellW = (w - 2 * side) / (land ? 14f : 8.4f);
         catStart = new float[catCount()];
         float x = 0;
         for (int i = 0; i < catCount(); i++) {
             catStart[i] = x;
             int cols = (catEmojis(i).size() + ROWS - 1) / ROWS;
-            x += cols * cellW + cellW * 0.6f;
+            x += cols * cellW + cellW * 0.25f;
         }
         contentW = x;
         scrollX = Math.max(0, Math.min(scrollX, maxScroll()));
@@ -240,7 +247,7 @@ public class EmojiView extends View {
         c.drawText("Rechercher un emoji", side + 36 * d, sy - (text.descent() + text.ascent()) / 2, text);
         text.setTextAlign(Paint.Align.CENTER);
 
-        float size = Math.min(cellW, cellH) * 0.84f;
+        float size = Math.min(cellW, cellH) * 0.86f;
         emoji.setTextSize(size);
         float off = -(emoji.descent() + emoji.ascent()) / 2;
         c.save();
