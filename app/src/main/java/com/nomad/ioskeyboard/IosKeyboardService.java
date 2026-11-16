@@ -975,7 +975,10 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         if (now - lastEgg < 2500) return;
         String b = Dictionary.norm(before(24).toLowerCase()).replaceAll("\\s+", " ").trim();
         String raw = before(24).replaceAll("\\s+", " ").trim();
-        int type = b.endsWith("jeton fortnite") || b.endsWith("jetonfortnite") ? 1 : raw.endsWith("31 31 31") ? 2 : 0;
+        String lastCh = before(1);
+        boolean after = lastCh.equals(" ") || lastCh.equals("\n");
+        boolean is31 = after && raw.endsWith("31") && (raw.length() == 2 || !Character.isDigit(raw.charAt(raw.length() - 3)));
+        int type = b.endsWith("jeton fortnite") || b.endsWith("jetonfortnite") ? 1 : is31 ? 2 : 0;
         if (type == 0) return;
         lastEgg = now;
         android.graphics.Bitmap bmp = null;

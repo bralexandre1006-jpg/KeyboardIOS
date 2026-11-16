@@ -209,8 +209,8 @@ public class SettingsActivity extends Activity {
         g.addView(pills(Prefs.ONE_HAND, new String[]{"left", "off", "right"}, new String[]{"Gauche", "Normal", "Droite"}));
 
         g = group("Easter eggs");
-        g.addView(rowCard(new String[][]{{"Activer (jeton, 31 31 31)", Prefs.EASTER}}));
-        g.addView(noteView("Écrivez « jeton fortnite » ou « 31 31 31 » pour les déclencher."));
+        g.addView(rowCard(new String[][]{{"Activer (jeton, 31)", Prefs.EASTER}}));
+        g.addView(noteView("Écrivez « jeton fortnite » ou « 31 » suivi d'un espace pour les déclencher."));
 
         g = group("Raccourcis");
         g.addView(noteView("Tapez le raccourci : le texte est proposé dans la barre et remplacé à l'espace (ex : allah → الله)."));
