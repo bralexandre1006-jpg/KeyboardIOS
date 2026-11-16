@@ -236,6 +236,9 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         keyboard.trEmoji = Prefs.bool(this, Prefs.TR_EMOJI) && suggest;
         keyboard.trReturn = Prefs.bool(this, Prefs.TR_RETURN) && suggest;
         Translate.online = Prefs.bool(this, Prefs.TR_ONLINE);
+        java.util.List<String> sl = new java.util.ArrayList<>();
+        for (String c : Prefs.str(this, Prefs.TR_SEND).split(",")) if (!c.trim().isEmpty() && !c.trim().equals(trSource())) sl.add(c.trim());
+        keyboard.sendLangs = sl.toArray(new String[0]);
         if (!restarting) { trMode = false; keyboard.setTranslation(false, "", ""); }
         loadShortcuts();
         registerShake(Prefs.bool(this, Prefs.SHAKE_UNDO));

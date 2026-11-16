@@ -249,6 +249,8 @@ public class KeyboardView extends View {
             iconTr = new Key(Key.TRANSLATE, "", "", 1f), trPill = new Key(Key.TR_PILL, "", "", 1f), trTextKey = new Key(Key.TR_TEXT, "", "", 1f);
     boolean showTrIcon, trEmoji, trReturn;
     private boolean trActive;
+    String[] sendLangs = new String[0];
+    private float listAnim = 1f;
     // scrollable language overlay
     private boolean langOpen;
     private int langMode;
@@ -1052,29 +1054,60 @@ public class KeyboardView extends View {
     }
 
     private void drawMicMenu(Canvas c) {
-        float rr = radius * 1.8f;
-        if (!theme.dark) {
-            fill.setColor(0x33000000);
-            tmp.set(micRect.left, micRect.top + d, micRect.right, micRect.bottom + d);
-            c.drawRoundRect(tmp, rr, rr, fill);
-        }
-        fill.setColor(theme.preview);
+        float rr = 20 * d;
+        float k = Math.max(0f, Math.min(1f, listAnim));
+        boolean below = pKey != null && micRect.top > pKey.rect.top;
+        float ax = pKey != null ? Math.max(micRect.left, Math.min(micRect.right, pKey.rect.centerX())) : micRect.centerX();
+        float ay = below ? micRect.top : micRect.bottom;
+        c.save();
+        float sc = 0.86f + 0.14f * k;
+        c.scale(sc, sc, ax, ay);
+        int alpha = (int) (255 * k);
+        // soft shadow
+        fill.setColor(android.graphics.Color.argb((int) (90 * k), 0, 0, 0));
+        tmp.set(micRect.left, micRect.top + 4 * d, micRect.right, micRect.bottom + 6 * d);
+        c.drawRoundRect(tmp, rr, rr, fill);
+        // translucent glass body
+        int body = theme.dark ? 0xE03A3A3E : 0xE6F4F4F7;
+        fill.setColor(body);
+        fill.setAlpha((int) (((body >>> 24) & 0xFF) * k));
         c.drawRoundRect(micRect, rr, rr, fill);
-        float ih = (micRect.height() - 8 * d) / MIC_ITEMS.length;
+        // top sheen
+        fill.setShader(new android.graphics.LinearGradient(0, micRect.top, 0, micRect.top + micRect.height() * 0.55f,
+                android.graphics.Color.argb((int) ((theme.dark ? 46 : 120) * k), 255, 255, 255), 0x00FFFFFF, android.graphics.Shader.TileMode.CLAMP));
+        c.drawRoundRect(micRect, rr, rr, fill);
+        fill.setShader(null);
+        // hairline rim
+        stroke.setStrokeWidth(Math.max(1f, 0.8f * d));
+        stroke.setShader(new android.graphics.LinearGradient(0, micRect.top, 0, micRect.bottom,
+                android.graphics.Color.argb((int) (110 * k), 255, 255, 255), android.graphics.Color.argb((int) (25 * k), 255, 255, 255), android.graphics.Shader.TileMode.CLAMP));
+        tmp.set(micRect.left + 0.5f * d, micRect.top + 0.5f * d, micRect.right - 0.5f * d, micRect.bottom - 0.5f * d);
+        c.drawRoundRect(tmp, rr, rr, stroke);
+        stroke.setShader(null);
+        float ih = (micRect.height() - 12 * d) / MIC_ITEMS.length;
         text.setTypeface(face);
         text.setTextSize(unit * 0.42f);
         text.setTextAlign(Paint.Align.LEFT);
+        int fg = theme.dark ? 0xFFFFFFFF : 0xFF000000;
         for (int i = 0; i < MIC_ITEMS.length; i++) {
-            float t = micRect.top + 4 * d + i * ih;
+            float t = micRect.top + 6 * d + i * ih;
             if (i == micSel) {
-                fill.setColor(theme.accent);
-                tmp.set(micRect.left + 4 * d, t, micRect.right - 4 * d, t + ih);
-                c.drawRoundRect(tmp, radius, radius, fill);
+                fill.setColor(theme.dark ? 0x33FFFFFF : 0x1F000000);
+                fill.setAlpha((int) ((theme.dark ? 0x33 : 0x1F) * k));
+                tmp.set(micRect.left + 6 * d, t, micRect.right - 6 * d, t + ih);
+                c.drawRoundRect(tmp, ih / 2, ih / 2, fill);
+            } else if (i > 0 && i - 1 != micSel) {
+                fill.setColor(theme.dark ? 0x22FFFFFF : 0x1A000000);
+                c.drawRect(micRect.left + 18 * d, t - 0.35f * d, micRect.right - 18 * d, t + 0.35f * d, fill);
             }
-            text.setColor(i == micSel ? theme.accentText : theme.text);
-            c.drawText(MIC_ITEMS[i], micRect.left + 14 * d, t + ih / 2 - (text.descent() + text.ascent()) / 2, text);
+            text.setColor(fg);
+            text.setAlpha(alpha);
+            c.drawText(MIC_ITEMS[i], micRect.left + 18 * d, t + ih / 2 - (text.descent() + text.ascent()) / 2, text);
         }
+        text.setAlpha(255);
         text.setTextAlign(Paint.Align.CENTER);
+        c.restore();
+        if (k < 1f) postInvalidateOnAnimation();
     }
 
     private float popupCellW() {
@@ -1517,11 +1550,18 @@ public class KeyboardView extends View {
     private void openListMenu() {
         pState = ST_MICMENU;
         micSel = -1;
-        float w = unit * 4.2f, ih = rowH * 0.66f, h = ih * MIC_ITEMS.length + 8 * d;
-        float l = Math.max(4 * d, Math.min(getWidth() - 4 * d - w, pKey.rect.left));
+        text.setTypeface(face);
+        text.setTextSize(unit * 0.42f);
+        float maxW = 0;
+        for (String it : MIC_ITEMS) maxW = Math.max(maxW, text.measureText(it));
+        float w = Math.max(unit * 3.4f, maxW + 40 * d), ih = rowH * 0.7f, h = ih * MIC_ITEMS.length + 12 * d;
+        float l = pKey.rect.centerX() > getWidth() / 2f ? pKey.rect.right - w : pKey.rect.left;
+        l = Math.max(4 * d, Math.min(getWidth() - 4 * d - w, l));
         float t = pKey.rect.top < keysTop ? pKey.rect.bottom + 4 * d : Math.max(2 * d, pKey.rect.top - 6 * d - h);
         micRect.set(l, t, l + w, t + h);
         feedback.tick();
+        listAnim = 0f;
+        animateFloat(v -> listAnim = v, 160);
         invalidate();
     }
 
@@ -1533,9 +1573,14 @@ public class KeyboardView extends View {
 
     private final Runnable returnMenu = () -> {
         if (pState != ST_PRESS || pKey == null || pKey.type != Key.RETURN) return;
-        reset();
-        listener.onTranslateSend(-1);
+        if (sendLangs.length == 0) return;
+        int n = Math.min(sendLangs.length, 7);
+        MIC_ITEMS = new String[n];
+        micActions = new int[n];
+        for (int i = 0; i < n; i++) { MIC_ITEMS[i] = Translate.name(sendLangs[i]); micActions[i] = 30 + i; }
+        openListMenu();
     };
+
 
     private final Runnable globeKeyLong = () -> {
         if (pState != ST_PRESS || pKey == null || pKey.type != Key.GLOBE) return;
@@ -1729,6 +1774,7 @@ public class KeyboardView extends View {
                 else if (m == 11) listener.onMic();
                 else if (m == 12) { menuOpen = true; menuPressed = -1; invalidate(); }
                 else if (m == 13) listener.onTranslateToggle();
+                else if (m >= 30) listener.onTranslateSendCode(sendLangs[m - 30]);
                 else if (m >= 20) listener.onTranslateSend(m - 20);
                 return;
             }
