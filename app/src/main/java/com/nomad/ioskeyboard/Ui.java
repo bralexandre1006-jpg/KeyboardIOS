@@ -65,7 +65,7 @@ final class Ui {
         void setLabel(String s) { label = s; invalidate(); }
 
         @Override protected void onMeasure(int w, int h) {
-            setMeasuredDimension(MeasureSpec.getSize(w), (int) (76 * d));
+            setMeasuredDimension(MeasureSpec.getSize(w), (int) (64 * d));
         }
 
         @Override protected void onDraw(Canvas c) {
@@ -77,7 +77,7 @@ final class Ui {
             p.setShader(null);
             p.clearShadowLayer();
             p.setColor(0xFFFFFFFF);
-            p.setTextSize(19 * d);
+            p.setTextSize(16 * d);
             p.setLetterSpacing(0.04f);
             c.drawText(label, r.centerX(), r.centerY() - (p.descent() + p.ascent()) / 2, p);
         }
@@ -103,7 +103,7 @@ final class Ui {
         void setListener(OnSelect l) { listener = l; }
 
         @Override protected void onMeasure(int w, int h) {
-            setMeasuredDimension(MeasureSpec.getSize(w), (int) (64 * d));
+            setMeasuredDimension(MeasureSpec.getSize(w), (int) (50 * d));
         }
 
         @Override public boolean onTouchEvent(MotionEvent e) {
@@ -145,7 +145,7 @@ final class Ui {
             for (int i = 0; i < labels.length; i++) {
                 float t = 1 - Math.min(1, Math.abs(pos - i));
                 p.setTypeface(semibold(getContext()));
-                p.setTextSize(17 * d);
+                p.setTextSize(15 * d);
                 p.setColor(blend(SUB, TEXT, t));
                 c.drawText(labels[i], in + sw * (i + 0.5f), h / 2 - (p.descent() + p.ascent()) / 2, p);
             }
@@ -421,6 +421,63 @@ final class Ui {
                 p.setColor(blend(0xFFBDBDC4, 0xFFFFFFFF, t));
                 c.drawText(label, cx, cy - (p.descent() + p.ascent()) / 2, p);
             }
+        }
+    }
+
+    /** Compact list row with label and pink switch. */
+    static final class ToggleRow extends View {
+        interface OnChange { void changed(boolean on); }
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final String label;
+        private final float d;
+        private boolean on, pressed;
+        private float t;
+        private OnChange listener;
+
+        ToggleRow(Context c, String label, boolean on) {
+            super(c);
+            this.label = label; this.on = on; t = on ? 1 : 0;
+            d = getResources().getDisplayMetrics().density;
+            setOnClickListener(v -> toggle());
+        }
+
+        void setListener(OnChange l) { listener = l; }
+
+        private void toggle() {
+            on = !on;
+            ValueAnimator a = ValueAnimator.ofFloat(t, on ? 1 : 0);
+            a.setDuration(220);
+            a.setInterpolator(new DecelerateInterpolator(1.5f));
+            a.addUpdateListener(v -> { t = (float) v.getAnimatedValue(); invalidate(); });
+            a.start();
+            performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
+            if (listener != null) listener.changed(on);
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent e) {
+            if (e.getAction() == MotionEvent.ACTION_DOWN) { pressed = true; invalidate(); }
+            else if (e.getAction() == MotionEvent.ACTION_UP || e.getAction() == MotionEvent.ACTION_CANCEL) { pressed = false; invalidate(); }
+            return super.onTouchEvent(e);
+        }
+
+        @Override protected void onMeasure(int w, int h) {
+            setMeasuredDimension(MeasureSpec.getSize(w), (int) (54 * d));
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            float w = getWidth(), h = getHeight();
+            if (pressed) { p.setColor(0x14FFFFFF); c.drawRect(0, 0, w, h, p); }
+            p.setTypeface(regular(getContext()));
+            p.setTextSize(16.5f * d);
+            p.setColor(TEXT);
+            p.setTextAlign(Paint.Align.LEFT);
+            c.drawText(label, 18 * d, h / 2 - (p.descent() + p.ascent()) / 2, p);
+            float sw = 46 * d, sh = 28 * d;
+            RectF r = new RectF(w - 16 * d - sw, h / 2 - sh / 2, w - 16 * d, h / 2 + sh / 2);
+            p.setColor(blend(0xFF2E2E33, GOLD_B, t));
+            c.drawRoundRect(r, sh / 2, sh / 2, p);
+            p.setColor(0xFFFFFFFF);
+            c.drawCircle(r.left + sh / 2 + (sw - sh) * t, r.centerY(), sh / 2 - 3 * d, p);
         }
     }
 }

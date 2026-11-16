@@ -10,7 +10,7 @@ final class Prefs {
             IOS_HAPTIC = "ios_haptic", IOS_SOUND = "ios_sound", SMART_TOUCH = "smart_touch", GLASS = "glass",
             ANIMS = "anims", NEXT_WORD = "next_word", EMOJI_SUGGEST = "emoji_suggest", FR_SPACING = "fr_spacing",
             SHORTCUTS = "shortcuts_on", SWIPE_DOWN = "swipe_down", SHAKE_UNDO = "shake_undo", ONE_HAND = "one_hand",
-            SHORTCUT_LIST = "shortcut_list", KB_TR = "kb_tr", KB_HE = "kb_he", ACTIVE_KB = "active_kb";
+            SHORTCUT_LIST = "shortcut_list", KB_TR = "kb_tr", KB_HE = "kb_he", ACTIVE_KB = "active_kb", ICON_POS = "icon_pos";
     static final String DEFAULT_SHORTCUTS = "stp\ts'il te plaît\nsvp\ts'il vous plaît\ntkt\tt'inquiète\njsp\tje sais pas\nbcp\tbeaucoup\npk\tpourquoi\nrdv\trendez-vous\nqqn\tquelqu'un\nqqch\tquelque chose\nauj\taujourd'hui";
 
     static SharedPreferences get(Context c) {
@@ -51,6 +51,7 @@ final class Prefs {
             case LANG: return p.getString(k, "fr_en");
             case ONE_HAND: return p.getString(k, "off");
             case ACTIVE_KB: return p.getString(k, "latin");
+            case ICON_POS: return p.getString(k, "top");
             case SHORTCUT_LIST: return p.getString(k, DEFAULT_SHORTCUTS);
             default: return p.getString(k, "auto");
         }

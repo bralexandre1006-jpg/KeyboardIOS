@@ -132,13 +132,13 @@ public class SettingsActivity extends Activity {
     private void build() {
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.setPadding(0, dp(18), 0, dp(20));
-        head.addView(new Ui.Logo(this), new LinearLayout.LayoutParams(dp(58), dp(58)));
+        head.setPadding(dp(2), dp(14), 0, dp(16));
+        head.addView(new Ui.Logo(this), new LinearLayout.LayoutParams(dp(46), dp(46)));
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
-        titles.setPadding(dp(14), 0, 0, 0);
-        titles.addView(text("Clavier", 34, Ui.TEXT, Ui.heavy(this)));
-        TextView sub = text("STYLE IOS", 14, Ui.SUB, Ui.semibold(this));
+        titles.setPadding(dp(12), 0, 0, 0);
+        titles.addView(text("Clavier", 28, Ui.TEXT, Ui.heavy(this)));
+        TextView sub = text("STYLE IOS", 12, Ui.SUB, Ui.semibold(this));
         sub.setLetterSpacing(0.22f);
         titles.addView(sub);
         head.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
@@ -147,99 +147,87 @@ public class SettingsActivity extends Activity {
         add(head, 0);
 
         LinearLayout hero = card();
-        LinearLayout chips = new LinearLayout(this);
-        chips.setGravity(Gravity.CENTER_VERTICAL);
         heroChip = new Ui.Chip(this, "…", Ui.GREEN, Ui.GREEN_BG, Ui.GREEN);
-        chips.addView(heroChip);
-        View spacer = new View(this);
-        chips.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1));
-        String lang = Prefs.str(this, Prefs.LANG);
-        chips.addView(new Ui.Chip(this, (lang.equals("fr_en") ? "FR · EN" : lang.toUpperCase()) + "  " + Prefs.str(this, Prefs.LAYOUT).toUpperCase(),
-                Ui.TEXT, 0xFF222226, 0));
-        hero.addView(chips);
-        TextView lbl = text("ESSAYER", 16, Ui.SUB, Ui.semibold(this));
-        lbl.setLetterSpacing(0.22f);
-        lbl.setPadding(0, dp(22), 0, dp(4));
-        hero.addView(lbl);
+        LinearLayout chipRow = new LinearLayout(this);
+        chipRow.addView(heroChip);
+        hero.addView(chipRow);
         test = new EditText(this);
-        test.setHint("Tapez ici…");
+        test.setHint("Tapez ici pour essayer…");
         test.setHintTextColor(0xFF4A4A52);
         test.setTextColor(Ui.TEXT);
-        test.setTypeface(Ui.heavy(this));
-        test.setTextSize(30);
+        test.setTypeface(Ui.semibold(this));
+        test.setTextSize(22);
         test.setBackground(null);
-        test.setPadding(0, 0, 0, dp(6));
+        test.setPadding(0, dp(14), 0, dp(4));
         test.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         hero.addView(test);
-
-        FrameLayout strip = new FrameLayout(this);
-        GradientDrawable sbg = new GradientDrawable();
-        sbg.setColor(0xFF0E0E10);
-        sbg.setCornerRadius(dp(24));
-        sbg.setStroke(dp(1), Ui.BORDER);
-        strip.setBackground(sbg);
-        strip.setPadding(dp(14), dp(14), dp(14), dp(14));
-        Ui.TypingKeyboard demo = new Ui.TypingKeyboard(this,
-                new String[]{"Salut, ça va ?", "J'arrive dans 5 min", "Bonne soirée !", "Merci beaucoup"}, true, true, 20);
-        strip.addView(demo, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(190)));
-        demo.start(2200);
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        slp.topMargin = dp(10);
-        hero.addView(strip, slp);
-
         cta = new Ui.GoldButton(this, "…");
         cta.setOnClickListener(v -> onCta());
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        clp.topMargin = dp(16);
+        clp.topMargin = dp(8);
         hero.addView(cta, clp);
         add(hero, 0);
 
-        section("APPARENCE");
-        add(pills(Prefs.THEME, new String[]{"auto", "light", "dark"}, new String[]{"◐  Auto", "☀  Clair", "☾  Sombre"}), 0);
-        add(pills(Prefs.LAYOUT, new String[]{"azerty", "qwerty"}, new String[]{"AZERTY", "QWERTY"}), 10);
-        add(pills(Prefs.LANG, new String[]{"fr_en", "fr", "en"}, new String[]{"FR + EN", "Français", "English"}), 10);
+        section("CLAVIER");
+        add(pills(Prefs.THEME, new String[]{"auto", "light", "dark"}, new String[]{"Auto", "Clair", "Sombre"}), 0);
+        add(pills(Prefs.LAYOUT, new String[]{"azerty", "qwerty"}, new String[]{"AZERTY", "QWERTY"}), 8);
+        add(pills(Prefs.LANG, new String[]{"fr_en", "fr", "en"}, new String[]{"FR + EN", "Français", "English"}), 8);
 
-        section("AUTRES CLAVIERS");
-        grid(new String[][]{{"Turc (Türkçe)", Prefs.KB_TR}, {"Hébreu (עברית)", Prefs.KB_HE}});
-        TextView kbTip = text("Une touche 🌐 apparaît dans le clavier pour passer d'une langue à l'autre (appui long : choisir un autre clavier).", 14, Ui.SUB, Ui.regular(this));
-        kbTip.setPadding(dp(6), dp(12), dp(6), 0);
-        add(kbTip, 0);
+        section("GLOBE ET MICRO");
+        add(pills(Prefs.ICON_POS, new String[]{"top", "bottom"}, new String[]{"En haut", "En bas"}), 0);
+        rows(new String[][]{{"Afficher le micro", Prefs.DICTATION}, {"Clavier turc", Prefs.KB_TR}, {"Clavier hébreu", Prefs.KB_HE}}, 8);
+        note("Le globe apparaît quand un autre clavier est activé. En haut : à la place d'une suggestion. Appui long sur le micro pour la langue de dictée.");
 
         section("SAISIE");
-        grid(new String[][]{{"Correction auto", Prefs.AUTOCORRECT}, {"Prédictions", Prefs.PREDICT},
-                {"Balayer pour écrire", Prefs.SWIPE}, {"Majuscules auto", Prefs.AUTOCAP},
-                {"Verr. majuscules", Prefs.CAPS_LOCK}});
+        rows(new String[][]{{"Correction automatique", Prefs.AUTOCORRECT}, {"Prédictions", Prefs.PREDICT},
+                {"Balayer pour écrire", Prefs.SWIPE}, {"Majuscules automatiques", Prefs.AUTOCAP},
+                {"Verrouillage majuscules", Prefs.CAPS_LOCK}}, 0);
 
-        section("SONS & DICTÉE");
-        grid(new String[][]{{"Son des touches", Prefs.SOUND}, {"Vibrations", Prefs.HAPTIC},
-                {"Afficher le micro", Prefs.DICTATION}, {"Globe & micro en bas", Prefs.BOTTOM_BAR}});
-        TextView tip = text("Astuce : appui long sur 😊 dans le clavier pour les réglages rapides.", 14, Ui.SUB, Ui.regular(this));
-        tip.setPadding(dp(6), dp(12), dp(6), 0);
-        add(tip, 0);
+        section("SONS ET VIBRATIONS");
+        rows(new String[][]{{"Son des touches", Prefs.SOUND}, {"Vibrations", Prefs.HAPTIC},
+                {"Sons iPhone", Prefs.IOS_SOUND}, {"Vibrations iPhone", Prefs.IOS_HAPTIC}}, 0);
 
         section("AVANCÉ");
-        grid(new String[][]{{"Sons iPhone", Prefs.IOS_SOUND}, {"Vibrations iPhone", Prefs.IOS_HAPTIC},
-                {"Frappe intelligente", Prefs.SMART_TOUCH}, {"Effet verre", Prefs.GLASS},
-                {"Animations", Prefs.ANIMS}, {"Mot suivant", Prefs.NEXT_WORD},
-                {"Emoji suggérés", Prefs.EMOJI_SUGGEST}, {"Espace avant ? ! :", Prefs.FR_SPACING},
-                {"Raccourcis", Prefs.SHORTCUTS}, {"Glisser ↓ = chiffre", Prefs.SWIPE_DOWN},
-                {"Secouer = annuler", Prefs.SHAKE_UNDO}});
-        TextView oh = text("CLAVIER À UNE MAIN", 13, Ui.SUB, Ui.semibold(this));
-        oh.setLetterSpacing(0.18f);
-        oh.setPadding(dp(6), dp(18), 0, dp(10));
-        add(oh, 0);
-        add(pills(Prefs.ONE_HAND, new String[]{"left", "off", "right"}, new String[]{"◧  Gauche", "Normal", "Droite  ◨"}), 0);
+        LinearLayout adv = new LinearLayout(this);
+        adv.setOrientation(LinearLayout.VERTICAL);
+        adv.setVisibility(View.GONE);
+        TextView toggleAdv = link("Afficher les options avancées", Ui.GOLD);
+        toggleAdv.setOnClickListener(v -> {
+            boolean show = adv.getVisibility() != View.VISIBLE;
+            adv.setVisibility(show ? View.VISIBLE : View.GONE);
+            if (show) { adv.setAlpha(0); adv.animate().alpha(1).setDuration(250).start(); }
+            toggleAdv.setText(show ? "Masquer les options avancées" : "Afficher les options avancées");
+        });
+        LinearLayout advCard = card();
+        advCard.setPadding(0, dp(4), 0, dp(4));
+        advCard.addView(toggleAdv);
+        add(advCard, 0);
+        LinearLayout list = rowCard(new String[][]{{"Frappe intelligente", Prefs.SMART_TOUCH}, {"Effet verre", Prefs.GLASS},
+                {"Animations", Prefs.ANIMS}, {"Mot suivant", Prefs.NEXT_WORD}, {"Emoji suggérés", Prefs.EMOJI_SUGGEST},
+                {"Raccourcis", Prefs.SHORTCUTS}, {"Glisser ↓ pour un chiffre", Prefs.SWIPE_DOWN},
+                {"Secouer pour annuler", Prefs.SHAKE_UNDO}, {"Espace avant ? ! :", Prefs.FR_SPACING}});
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        alp.topMargin = dp(10);
+        adv.addView(list, alp);
+        TextView oh = text("Clavier à une main", 14, Ui.SUB, Ui.semibold(this));
+        oh.setPadding(dp(6), dp(16), 0, dp(8));
+        adv.addView(oh);
+        adv.addView(pills(Prefs.ONE_HAND, new String[]{"left", "off", "right"}, new String[]{"Gauche", "Normal", "Droite"}));
+        add(adv, 0);
 
         section("RACCOURCIS");
-        TextView scTip = text("Tapez le raccourci : la phrase est proposée dans la barre de suggestions et remplacée à l'espace (ex : allah → الله).", 14, Ui.SUB, Ui.regular(this));
-        scTip.setPadding(dp(6), 0, dp(6), dp(12));
-        add(scTip, 0);
+        note("Tapez le raccourci : le texte est proposé dans la barre et remplacé à l'espace (ex : allah → الله).");
         shortcutCard = card();
-        add(shortcutCard, 0);
+        add(shortcutCard, 6);
         fillShortcuts();
 
         section("DONNÉES");
         LinearLayout data = card();
+        data.setPadding(dp(18), dp(4), dp(18), dp(4));
+        TextView mic = link("Autoriser le micro", Ui.GOLD);
+        mic.setGravity(Gravity.START);
+        mic.setOnClickListener(v -> requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC));
+        data.addView(mic);
         TextView del = link("Effacer les mots appris", Ui.RED);
         del.setGravity(Gravity.START);
         del.setOnClickListener(v -> {
@@ -248,16 +236,42 @@ public class SettingsActivity extends Activity {
             toast("Mots appris effacés");
         });
         data.addView(del);
-        TextView mic = link("Autoriser le micro", Ui.GOLD);
-        mic.setGravity(Gravity.START);
-        mic.setOnClickListener(v -> requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC));
-        data.addView(mic);
         add(data, 0);
 
-        TextView ver = text("Clavier 1.5 · Outfit & Inter (OFL)", 13, 0xFF4A4A52, Ui.regular(this));
+        TextView ver = text("Clavier 1.6", 12, 0xFF4A4A52, Ui.regular(this));
         ver.setGravity(Gravity.CENTER);
-        ver.setPadding(0, dp(28), 0, 0);
+        ver.setPadding(0, dp(24), 0, 0);
         add(ver, 0);
+    }
+
+    private void note(String s) {
+        TextView t = text(s, 13, Ui.SUB, Ui.regular(this));
+        t.setPadding(dp(8), dp(8), dp(8), 0);
+        t.setLineSpacing(0, 1.15f);
+        add(t, 0);
+    }
+
+    private LinearLayout rowCard(String[][] items) {
+        LinearLayout c = card();
+        c.setPadding(0, dp(2), 0, dp(2));
+        for (int i = 0; i < items.length; i++) {
+            String key = items[i][1];
+            Ui.ToggleRow r = new Ui.ToggleRow(this, items[i][0], Prefs.bool(this, key));
+            r.setListener(on -> Prefs.get(this).edit().putBoolean(key, on).apply());
+            c.addView(r);
+            if (i < items.length - 1) {
+                View line = new View(this);
+                line.setBackgroundColor(0xFF26262B);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, dp(0.6f)));
+                lp.leftMargin = dp(18);
+                c.addView(line, lp);
+            }
+        }
+        return c;
+    }
+
+    private void rows(String[][] items, int top) {
+        add(rowCard(items), top);
     }
 
     // ---------- Intro: a keyboard typing the title ----------
@@ -459,17 +473,17 @@ public class SettingsActivity extends Activity {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{Ui.CARD_TOP, Ui.CARD_BOTTOM});
-        bg.setCornerRadius(dp(30));
+        bg.setCornerRadius(dp(22));
         bg.setStroke(dp(1), Ui.BORDER);
         c.setBackground(bg);
-        c.setPadding(dp(22), dp(22), dp(22), dp(16));
+        c.setPadding(dp(18), dp(16), dp(18), dp(12));
         return c;
     }
 
     private void section(String s) {
-        TextView t = text(s, 15, Ui.SUB, Ui.semibold(this));
-        t.setLetterSpacing(0.22f);
-        t.setPadding(dp(6), dp(30), 0, dp(12));
+        TextView t = text(s, 12.5f, Ui.SUB, Ui.semibold(this));
+        t.setLetterSpacing(0.2f);
+        t.setPadding(dp(8), dp(26), 0, dp(9));
         add(t, 0);
     }
 

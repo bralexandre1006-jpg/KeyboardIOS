@@ -103,6 +103,21 @@ public class KeyboardView extends View {
 
     private static Typeface face;
     private float xRatio = 0.55f, capRatio = 0.73f;
+    boolean iconsTop = true;
+    private boolean builtIconsTop = true;
+    private final Key iconGlobe = new Key(Key.GLOBE, "", "", 1f), iconMic = new Key(Key.MIC, "", "", 1f);
+
+    private boolean barIcons() { return iconsTop && (showMic || showGlobe) && !searchMode; }
+
+    private void layoutBarIcons() {
+        float third = getWidth() / 3f;
+        int n = (showGlobe ? 1 : 0) + (showMic ? 1 : 0);
+        float w = third / Math.max(1, n);
+        int i = 0;
+        if (showGlobe) { iconGlobe.rect.set(i * w + 4 * d, 4 * d, (i + 1) * w - 4 * d, sugH - 4 * d); i++; }
+        if (showMic) iconMic.rect.set(i * w + 4 * d, 4 * d, (i + 1) * w - 4 * d, sugH - 4 * d);
+    }
+
     boolean showMic, showGlobe, glass = true, anims = true, smartTouch = true, swipeDown = true;
     String oneHand = "off";
     java.util.Locale locale = java.util.Locale.FRENCH;
@@ -194,7 +209,7 @@ public class KeyboardView extends View {
     void applyTheme(Theme t) { theme = t; invalidate(); }
 
     void configure(String layout, int variant, String returnLabel, boolean returnAction, String langLabel) {
-        boolean changed = !layout.equals(layoutName) || variant != this.variant || !returnLabel.equals(this.returnLabel) || builtMic != showMic || builtGlobe != showGlobe || !oneHand.equals(builtOneHand);
+        boolean changed = !layout.equals(layoutName) || variant != this.variant || !returnLabel.equals(this.returnLabel) || builtMic != showMic || builtGlobe != showGlobe || builtIconsTop != iconsTop || !oneHand.equals(builtOneHand);
         layoutName = layout; this.variant = variant; this.returnLabel = returnLabel;
         this.returnAction = returnAction; this.langLabel = langLabel;
         feedback.reload();
@@ -273,7 +288,8 @@ public class KeyboardView extends View {
         builtMic = showMic;
         builtGlobe = showGlobe;
         builtOneHand = oneHand;
-        rows = Layouts.build(mode, layoutName, variant, returnLabel, showMic, showGlobe);
+        builtIconsTop = iconsTop;
+        rows = Layouts.build(mode, layoutName, variant, returnLabel, showMic && !iconsTop, showGlobe && !iconsTop);
         layoutKeys();
         invalidate();
     }
@@ -422,8 +438,26 @@ public class KeyboardView extends View {
         Theme t = theme;
         float w = getWidth() / 3f;
         float cy = sugH / 2;
-        for (int i = 0; i < 3; i++) {
-            float l = i * w;
+        boolean icons = barIcons();
+        if (icons) {
+            layoutBarIcons();
+            for (Key k : new Key[]{iconGlobe, iconMic}) {
+                if ((k == iconGlobe && !showGlobe) || (k == iconMic && !showMic)) continue;
+                if (pKey == k && pState != ST_NONE) {
+                    fill.setColor(t.special);
+                    c.drawRoundRect(k.rect, 8 * d, 8 * d, fill);
+                }
+                if (k == iconGlobe) drawGlobe(c, k.rect.centerX(), sugH * 0.52f, unit * 0.27f, t.text);
+                else drawMic(c, k.rect.centerX(), sugH * 0.52f, unit * 0.3f, voiceActive ? t.accent : t.text);
+            }
+        }
+        for (int slot = icons ? 1 : 0; slot < 3; slot++) {
+            int i = icons ? slot - 1 : slot;
+            float l = slot * w;
+            if (icons && slot == 1 && highlight != 0 && pressedSug != 0) {
+                fill.setColor(t.divider);
+                c.drawRect(l - 0.5f * d, sugH * 0.3f, l + 0.5f * d, sugH * 0.72f, fill);
+            }
             if (i == highlight || i == pressedSug) {
                 fill.setColor(i == pressedSug ? t.special : t.highlight);
                 tmp.set(l + 4 * d, 5 * d, l + w - 4 * d, sugH - 5 * d);
@@ -1072,6 +1106,24 @@ public class KeyboardView extends View {
         }
         if (y < keysTop - gapV / 2) {
             if (!showSuggestionBar) { pId = -1; return; }
+            if (barIcons()) {
+                layoutBarIcons();
+                int ti = Math.min(2, (int) (x / (getWidth() / 3f)));
+                if (ti == 0) {
+                    Key ik = showGlobe && (!showMic || x < iconGlobe.rect.right + 4 * d) ? iconGlobe : iconMic;
+                    pKey = ik;
+                    pState = ST_PRESS;
+                    feedback.key(Key.MODE_NUM);
+                    handler.postDelayed(ik == iconMic ? micMenuOpen : globeKeyLong, ik == iconMic ? 420 : 450);
+                    invalidate();
+                    return;
+                }
+                pState = ST_SUGGEST;
+                pressedSug = ti - 1;
+                if (suggestions[pressedSug].isEmpty()) pressedSug = -1;
+                invalidate();
+                return;
+            }
             pState = ST_SUGGEST;
             pressedSug = Math.min(2, (int) (x / (getWidth() / 3f)));
             if (suggestions[pressedSug].isEmpty()) pressedSug = -1;
@@ -1155,7 +1207,7 @@ public class KeyboardView extends View {
         micSel = -1;
         float w = unit * 4.2f, ih = rowH * 0.66f, h = ih * MIC_ITEMS.length + 8 * d;
         float l = Math.max(4 * d, Math.min(getWidth() - 4 * d - w, pKey.rect.left));
-        float t = Math.max(2 * d, pKey.rect.top - 6 * d - h);
+        float t = pKey.rect.top < keysTop ? pKey.rect.bottom + 4 * d : Math.max(2 * d, pKey.rect.top - 6 * d - h);
         micRect.set(l, t, l + w, t + h);
         feedback.tick();
         invalidate();
@@ -1274,6 +1326,7 @@ public class KeyboardView extends View {
             case ST_SUGGEST: {
                 if (searchMode) break;
                 int s = y < keysTop + rowH * 0.5f ? Math.min(2, (int) (x / (getWidth() / 3f))) : -1;
+                if (barIcons() && s >= 0) s = s == 0 ? -1 : s - 1;
                 if (s != pressedSug) { pressedSug = s >= 0 && !suggestions[s].isEmpty() ? s : -1; invalidate(); }
                 break;
             }

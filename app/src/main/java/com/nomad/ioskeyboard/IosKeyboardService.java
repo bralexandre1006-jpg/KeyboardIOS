@@ -176,6 +176,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         String kb = Prefs.activeKeyboard(this);
         String langLabel = kb.equals("tr") ? "TR" : kb.equals("he") ? "HE" : lang.equals("fr_en") ? "FR EN" : lang.toUpperCase();
         keyboard.showGlobe = Prefs.keyboards(this).size() > 1;
+        keyboard.iconsTop = "top".equals(Prefs.str(this, Prefs.ICON_POS));
         keyboard.locale = kb.equals("tr") ? new java.util.Locale("tr") : java.util.Locale.FRENCH;
         keyboard.glass = Prefs.bool(this, Prefs.GLASS);
         keyboard.anims = Prefs.bool(this, Prefs.ANIMS);
