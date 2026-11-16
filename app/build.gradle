@@ -31,3 +31,7 @@ android {
     androidResources { noCompress 'txt', 'wav', 'bloom' }
     lint { checkReleaseBuilds false; abortOnError false }
 }
+
+dependencies {
+    implementation 'com.google.mlkit:translate:17.0.3'
+}

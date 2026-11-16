@@ -40,6 +40,10 @@ public class KeyboardView extends View {
         void onNextKeyboard();
         void onMicOption(int index);
         void onHide();
+        void onTranslateToggle();
+        void onTranslatePill(boolean longPress);
+        void onTranslateApply();
+        void onTranslateSend(int langIndex);
     }
 
     static final int SHIFT_OFF = 0, SHIFT_ON = 1, SHIFT_LOCK = 2;
@@ -238,17 +242,60 @@ public class KeyboardView extends View {
         text.setTypeface(face);
     }
     private String builtIconPos = "top";
-    private final Key iconGlobe = new Key(Key.GLOBE, "", "", 1f), iconMic = new Key(Key.MIC, "", "", 1f);
+    private final Key iconGlobe = new Key(Key.GLOBE, "", "", 1f), iconMic = new Key(Key.MIC, "", "", 1f),
+            iconTr = new Key(Key.TRANSLATE, "", "", 1f), trPill = new Key(Key.TR_PILL, "", "", 1f), trTextKey = new Key(Key.TR_TEXT, "", "", 1f);
+    boolean showTrIcon, trEmoji, trReturn;
+    private boolean trActive;
+    private String trLabel = "", trText = "";
 
-    private boolean barIcons() { return "top".equals(iconPos) && (showMic || showGlobe) && !searchMode; }
+    void setTranslation(boolean active, String label, String text) {
+        trActive = active; trLabel = label; trText = text == null ? "" : text;
+        invalidate();
+    }
+
+    private boolean topGlobe() { return "top".equals(iconPos) && showGlobe; }
+    private boolean topMic() { return "top".equals(iconPos) && showMic; }
+
+    private boolean barIcons() { return (topGlobe() || topMic() || showTrIcon) && !searchMode && !trActive; }
+
+    private List<Key> barIconList() {
+        List<Key> l = new ArrayList<>();
+        if (topGlobe()) l.add(iconGlobe);
+        if (topMic()) l.add(iconMic);
+        if (showTrIcon) l.add(iconTr);
+        return l;
+    }
 
     private void layoutBarIcons() {
         float third = getWidth() / 3f;
-        int n = (showGlobe ? 1 : 0) + (showMic ? 1 : 0);
-        float w = third / Math.max(1, n);
-        int i = 0;
-        if (showGlobe) { iconGlobe.rect.set(i * w + 4 * d, 4 * d, (i + 1) * w - 4 * d, sugH - 4 * d); i++; }
-        if (showMic) iconMic.rect.set(i * w + 4 * d, 4 * d, (i + 1) * w - 4 * d, sugH - 4 * d);
+        List<Key> l = barIconList();
+        float w = third / Math.max(1, l.size());
+        for (int i = 0; i < l.size(); i++) l.get(i).rect.set(i * w + 4 * d, 4 * d, (i + 1) * w - 4 * d, sugH - 4 * d);
+    }
+
+    private void drawTranslateBar(Canvas c) {
+        Theme t = theme;
+        text.setTypeface(face);
+        text.setTextSize(Math.min(14 * d, unit * 0.36f));
+        float pw = text.measureText(trLabel) + 26 * d, ph = sugH * 0.62f;
+        trPill.rect.set(8 * d, (sugH - ph) / 2, 8 * d + pw, (sugH + ph) / 2);
+        fill.setColor(pKey == trPill && pState != ST_NONE ? 0xFFC72A6B : 0xFFFF3D8B);
+        c.drawRoundRect(trPill.rect, ph / 2, ph / 2, fill);
+        text.setColor(0xFFFFFFFF);
+        c.drawText(trLabel, trPill.rect.centerX(), sugH * 0.5f - (text.descent() + text.ascent()) / 2, text);
+        trTextKey.rect.set(trPill.rect.right + 8 * d, 4 * d, getWidth() - 6 * d, sugH - 4 * d);
+        if (pKey == trTextKey && pState != ST_NONE) {
+            fill.setColor(t.highlight);
+            c.drawRoundRect(trTextKey.rect, 8 * d, 8 * d, fill);
+        }
+        text.setTextSize(Math.min(16 * d, unit * 0.4f));
+        text.setColor(trText.isEmpty() ? t.subText : t.text);
+        String s0 = trText.isEmpty() ? "Écrivez, la traduction s'affiche ici" : trText;
+        sugPaint.set(text);
+        CharSequence e = TextUtils.ellipsize(s0, sugPaint, trTextKey.rect.width() - 12 * d, TextUtils.TruncateAt.START);
+        text.setTextAlign(Paint.Align.RIGHT);
+        c.drawText(e.toString(), trTextKey.rect.right - 6 * d, sugH * 0.52f - (text.descent() + text.ascent()) / 2, text);
+        text.setTextAlign(Paint.Align.CENTER);
     }
 
     boolean showMic, showGlobe, glass = true, anims = true, smartTouch = true, swipeDown = true;
@@ -539,6 +586,7 @@ public class KeyboardView extends View {
         }
         boolean tp = pState == ST_TRACKPAD;
         if (searchMode) drawSearch(c);
+        else if (trActive && !tp) drawTranslateBar(c);
         else if (showSuggestionBar && !tp) drawSuggestions(c);
         int layer = modeFade < 1f ? c.saveLayerAlpha(0, keysTop, getWidth(), keysBottom(), (int) (255 * (0.3f + 0.7f * modeFade))) : -1;
         for (List<Key> r : rows) for (Key k : r) if (k.type != Key.SPACER) drawKey(c, k, tp);
@@ -575,14 +623,20 @@ public class KeyboardView extends View {
         boolean icons = barIcons();
         if (icons) {
             layoutBarIcons();
-            for (Key k : new Key[]{iconGlobe, iconMic}) {
-                if ((k == iconGlobe && !showGlobe) || (k == iconMic && !showMic)) continue;
+            for (Key k : barIconList()) {
                 if (pKey == k && pState != ST_NONE) {
                     fill.setColor(t.special);
                     c.drawRoundRect(k.rect, 8 * d, 8 * d, fill);
                 }
                 if (k == iconGlobe) drawGlobe(c, k.rect.centerX(), sugH * 0.52f, unit * 0.27f, t.text);
-                else drawMic(c, k.rect.centerX(), sugH * 0.52f, unit * 0.3f, voiceActive ? t.accent : t.text);
+                else if (k == iconMic) drawMic(c, k.rect.centerX(), sugH * 0.52f, unit * 0.3f, voiceActive ? t.accent : t.text);
+                else {
+                    text.setTypeface(Typeface.DEFAULT_BOLD);
+                    text.setTextSize(unit * 0.36f);
+                    text.setColor(t.text);
+                    c.drawText("文A", k.rect.centerX(), sugH * 0.52f - (text.descent() + text.ascent()) / 2, text);
+                    text.setTypeface(face);
+                }
             }
         }
         for (int slot = icons ? 1 : 0; slot < 3; slot++) {
@@ -1240,15 +1294,25 @@ public class KeyboardView extends View {
         }
         if (y < keysTop - gapV / 2) {
             if (!showSuggestionBar) { pId = -1; return; }
+            if (trActive && !searchMode) {
+                pKey = x <= trPill.rect.right + 4 * d ? trPill : trTextKey;
+                pState = ST_PRESS;
+                feedback.key(Key.MODE_NUM);
+                if (pKey == trPill) handler.postDelayed(trPillLong, 450);
+                invalidate();
+                return;
+            }
             if (barIcons()) {
                 layoutBarIcons();
                 int ti = Math.min(2, (int) (x / (getWidth() / 3f)));
                 if (ti == 0) {
-                    Key ik = showGlobe && (!showMic || x < iconGlobe.rect.right + 4 * d) ? iconGlobe : iconMic;
+                    List<Key> l = barIconList();
+                    Key ik = l.get(Math.max(0, Math.min(l.size() - 1, (int) (x / ((getWidth() / 3f) / l.size())))));
                     pKey = ik;
                     pState = ST_PRESS;
                     feedback.key(Key.MODE_NUM);
-                    handler.postDelayed(ik == iconMic ? micMenuOpen : globeKeyLong, ik == iconMic ? 420 : 450);
+                    if (ik == iconMic) handler.postDelayed(micMenuOpen, 420);
+                    else if (ik == iconGlobe) handler.postDelayed(globeKeyLong, 450);
                     invalidate();
                     return;
                 }
@@ -1329,6 +1393,10 @@ public class KeyboardView extends View {
                 pState = ST_PRESS;
                 handler.postDelayed(micMenuOpen, 420);
                 break;
+            case Key.RETURN:
+                pState = ST_PRESS;
+                if (trReturn) handler.postDelayed(returnMenu, 450);
+                break;
             default:
                 pState = ST_PRESS;
         }
@@ -1353,6 +1421,21 @@ public class KeyboardView extends View {
         invalidate();
     }
 
+    private final Runnable trPillLong = () -> {
+        if (pState != ST_PRESS || pKey != trPill) return;
+        reset();
+        listener.onTranslatePill(true);
+    };
+
+    private final Runnable returnMenu = () -> {
+        if (pState != ST_PRESS || pKey == null || pKey.type != Key.RETURN) return;
+        int n = 5;
+        MIC_ITEMS = new String[n];
+        micActions = new int[n];
+        for (int i = 0; i < n; i++) { MIC_ITEMS[i] = "Envoyer en " + Translate.NAMES[i].toLowerCase(); micActions[i] = 20 + i; }
+        openListMenu();
+    };
+
     private final Runnable globeKeyLong = () -> {
         if (pState != ST_PRESS || pKey == null || pKey.type != Key.GLOBE) return;
         reset();
@@ -1370,11 +1453,13 @@ public class KeyboardView extends View {
 
     private final Runnable openMenu = () -> {
         if (pState != ST_PRESS || pKey == null || pKey.type != Key.EMOJI) return;
-        if ("emoji".equals(iconPos) && (showMic || showGlobe)) {
+        boolean emojiIcons = "emoji".equals(iconPos) && (showMic || showGlobe);
+        if (emojiIcons || trEmoji) {
             List<String> items = new ArrayList<>();
             List<Integer> acts = new ArrayList<>();
-            if (showGlobe) { items.add("Langue suivante"); acts.add(10); }
-            if (showMic) { items.add("Dictée"); acts.add(11); }
+            if (emojiIcons && showGlobe) { items.add("Langue suivante"); acts.add(10); }
+            if (emojiIcons && showMic) { items.add("Dictée"); acts.add(11); }
+            if (trEmoji) { items.add(trActive ? "Arrêter la traduction" : "Traduire"); acts.add(13); }
             if (quickMenu) { items.add("Réglages rapides"); acts.add(12); }
             MIC_ITEMS = items.toArray(new String[0]);
             micActions = new int[acts.size()];
@@ -1519,6 +1604,9 @@ public class KeyboardView extends View {
                 if (k.type == Key.CHAR && downAlt != null) { lastTapX = k.rect.centerX(); lastTapY = k.rect.centerY(); commitText(downAlt); downAlt = null; }
                 else if (k.type == Key.CHAR) fire(k);
                 else if (k.type == Key.GLOBE) listener.onNextKeyboard();
+                else if (k.type == Key.TRANSLATE) listener.onTranslateToggle();
+                else if (k.type == Key.TR_PILL) listener.onTranslatePill(false);
+                else if (k.type == Key.TR_TEXT) listener.onTranslateApply();
                 else if (k.type == Key.SPACE) listener.onSpace();
                 else if (k.type == Key.RETURN) listener.onReturn();
                 else if (k.type == Key.EMOJI) listener.onEmoji();
@@ -1539,6 +1627,8 @@ public class KeyboardView extends View {
                 else if (m == 10) listener.onNextKeyboard();
                 else if (m == 11) listener.onMic();
                 else if (m == 12) { menuOpen = true; menuPressed = -1; invalidate(); }
+                else if (m == 13) listener.onTranslateToggle();
+                else if (m >= 20) listener.onTranslateSend(m - 20);
                 return;
             }
             case ST_GESTURE: {
@@ -1579,6 +1669,8 @@ public class KeyboardView extends View {
         handler.removeCallbacks(openMenu);
         handler.removeCallbacks(globeKeyLong);
         handler.removeCallbacks(micMenuOpen);
+        handler.removeCallbacks(trPillLong);
+        handler.removeCallbacks(returnMenu);
         handler.removeCallbacks(longPress);
         handler.removeCallbacks(deleteRepeat);
         handler.removeCallbacks(globeLong);

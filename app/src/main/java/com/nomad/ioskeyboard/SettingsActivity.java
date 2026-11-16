@@ -184,6 +184,13 @@ public class SettingsActivity extends Activity {
         g.addView(spaced(rowCard(new String[][]{{"Afficher le micro", Prefs.DICTATION}, {"Réglages rapides (appui 😊)", Prefs.QUICK_MENU}})));
         g.addView(noteView("« Sur 😊 » : appui long sur la touche emoji pour le globe et le micro, sans prendre de place."));
 
+        g = group("Traduction");
+        g.addView(noteView("Langue de traduction"));
+        g.addView(spaced(pills(Prefs.TR_TARGET, new String[]{"en", "he", "tr", "ar", "es"}, new String[]{"EN", "HE", "TR", "AR", "ES"})));
+        g.addView(spaced(rowCard(new String[][]{{"Traduire dans le menu 😊", Prefs.TR_EMOJI}, {"Icône 文A dans la barre", Prefs.TR_BAR},
+                {"Appui long sur Envoyer", Prefs.TR_RETURN}})));
+        g.addView(noteView("Mode traduction : la pastille rose change la langue (appui long pour arrêter), touchez la traduction pour l'insérer. Envoyer envoie le texte traduit. La 1re fois, la langue se télécharge (~30 Mo)."));
+
         g = group("Saisie");
         g.addView(rowCard(new String[][]{{"Orthographe a / à", Prefs.GRAMMAR}, {"Balayer pour écrire", Prefs.SWIPE},
                 {"Majuscules automatiques", Prefs.AUTOCAP}, {"Verrouillage majuscules", Prefs.CAPS_LOCK},

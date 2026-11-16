@@ -232,6 +232,10 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         keyboard.closeMenu();
         keyboard.quickMenu = Prefs.bool(this, Prefs.QUICK_MENU);
         keyboard.swipeClose = Prefs.bool(this, Prefs.SWIPE_CLOSE);
+        keyboard.showTrIcon = Prefs.bool(this, Prefs.TR_BAR) && suggest;
+        keyboard.trEmoji = Prefs.bool(this, Prefs.TR_EMOJI) && suggest;
+        keyboard.trReturn = Prefs.bool(this, Prefs.TR_RETURN) && suggest;
+        if (!restarting) { trMode = false; keyboard.setTranslation(false, "", ""); }
         loadShortcuts();
         registerShake(Prefs.bool(this, Prefs.SHAKE_UNDO));
         keyboard.capsLockEnabled = Prefs.bool(this, Prefs.CAPS_LOCK);
@@ -399,6 +403,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
 
     private void updateSuggestionsNow() {
         if (keyboard == null || searching) return;
+        if (trMode) { requestTranslate(); return; }
         sugGen++;
         pendingCorrection = null;
         pendingFor = null;
@@ -651,6 +656,18 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         if (searching) { onSearchClose(); return; }
         InputConnection ic = ic();
         if (ic == null) return;
+        if (trMode && action != EditorInfo.IME_ACTION_NONE) {
+            String text = fieldText().trim();
+            if (!text.isEmpty()) {
+                if (text.equals(trFor) && !trResult.isEmpty()) { replaceField(trResult); sendAction(); }
+                else Translate.translate(trSource(), Prefs.str(this, Prefs.TR_TARGET), text, (res, err) -> main.post(() -> {
+                    if (res != null) replaceField(res);
+                    sendAction();
+                }));
+                trResult = ""; trFor = "";
+                return;
+            }
+        }
         if (action != EditorInfo.IME_ACTION_NONE) {
             ic.performEditorAction(action);
         } else {
@@ -813,6 +830,109 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         if (info != null) onStartInputView(info, true);
         keyboard.setMode(Layouts.LETTERS);
         updateShift();
+    }
+
+    // ---------- Translation ----------
+
+    private boolean trMode;
+    private String trResult = "", trFor = "";
+    private int trGen;
+    private final Runnable trTask = this::doTranslate;
+
+    private String trSource() {
+        String kb = Prefs.activeKeyboard(this);
+        if (kb.equals("tr") || kb.equals("he")) return kb;
+        return Prefs.str(this, Prefs.LANG).equals("en") ? "en" : "fr";
+    }
+
+    private String trLabel() {
+        return trSource().toUpperCase() + " > " + Translate.name(Prefs.str(this, Prefs.TR_TARGET)).toUpperCase();
+    }
+
+    private String fieldText() {
+        InputConnection ic = ic();
+        if (ic == null) return "";
+        CharSequence b = ic.getTextBeforeCursor(5000, 0), a = ic.getTextAfterCursor(5000, 0);
+        return (b == null ? "" : b.toString()) + (a == null ? "" : a.toString());
+    }
+
+    private void replaceField(String text) {
+        InputConnection ic = ic();
+        if (ic == null) return;
+        CharSequence b = ic.getTextBeforeCursor(5000, 0), a = ic.getTextAfterCursor(5000, 0);
+        ic.beginBatchEdit();
+        ic.deleteSurroundingText(b == null ? 0 : b.length(), a == null ? 0 : a.length());
+        ic.commitText(text, 1);
+        ic.endBatchEdit();
+    }
+
+    private void requestTranslate() {
+        main.removeCallbacks(trTask);
+        main.postDelayed(trTask, 350);
+    }
+
+    private void doTranslate() {
+        if (!trMode) return;
+        String text = fieldText().trim();
+        if (text.isEmpty()) { trResult = ""; trFor = ""; keyboard.setTranslation(true, trLabel(), ""); return; }
+        int gen = ++trGen;
+        Translate.translate(trSource(), Prefs.str(this, Prefs.TR_TARGET), text, (res, err) -> main.post(() -> {
+            if (gen != trGen || !trMode) return;
+            if (res != null) { trResult = res; trFor = text; }
+            keyboard.setTranslation(true, trLabel(), res != null ? res : (err != null ? err : ""));
+        }));
+        if (!Translate.isReady()) keyboard.setTranslation(true, trLabel(), "Préparation de la langue…");
+    }
+
+    @Override
+    public void onTranslateToggle() {
+        trMode = !trMode;
+        if (trMode) {
+            keyboard.setTranslation(true, trLabel(), "");
+            requestTranslate();
+        } else {
+            keyboard.setTranslation(false, "", "");
+            updateSuggestions();
+        }
+    }
+
+    @Override
+    public void onTranslatePill(boolean longPress) {
+        if (longPress) { if (trMode) onTranslateToggle(); return; }
+        String cur = Prefs.str(this, Prefs.TR_TARGET);
+        int i = 0;
+        for (int k = 0; k < Translate.CODES.length; k++) if (Translate.CODES[k].equals(cur)) i = k;
+        String next = Translate.CODES[(i + 1) % Translate.CODES.length];
+        if (next.equals(trSource())) next = Translate.CODES[(i + 2) % Translate.CODES.length];
+        Prefs.get(this).edit().putString(Prefs.TR_TARGET, next).apply();
+        trResult = ""; trFor = "";
+        keyboard.setTranslation(true, trLabel(), "");
+        requestTranslate();
+    }
+
+    @Override
+    public void onTranslateApply() {
+        if (!trResult.isEmpty() && trFor.equals(fieldText().trim())) replaceField(trResult);
+    }
+
+    @Override
+    public void onTranslateSend(int langIndex) {
+        String text = fieldText().trim();
+        if (text.isEmpty()) return;
+        keyboard.setSuggestions(new String[]{"", "Traduction…", ""}, -1);
+        Translate.translate(trSource(), Translate.CODES[langIndex], text, (res, err) -> main.post(() -> {
+            if (res == null) { Toast.makeText(this, err != null ? err : "Traduction impossible", Toast.LENGTH_SHORT).show(); return; }
+            replaceField(res);
+            sendAction();
+        }));
+    }
+
+    private void sendAction() {
+        InputConnection ic = ic();
+        if (ic == null) return;
+        if (action != EditorInfo.IME_ACTION_NONE) ic.performEditorAction(action);
+        else if (multiline) ic.commitText("\n", 1);
+        else sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER);
     }
 
     @Override

@@ -4,7 +4,7 @@ import android.graphics.RectF;
 
 final class Key {
     static final int CHAR = 0, SHIFT = 1, DELETE = 2, MODE_NUM = 3, MODE_SYM = 4, MODE_ABC = 5, EMOJI = 6,
-            SPACE = 7, RETURN = 8, SPACER = 9, MIC = 10, GLOBE = 11;
+            SPACE = 7, RETURN = 8, SPACER = 9, MIC = 10, GLOBE = 11, TRANSLATE = 12, TR_PILL = 13, TR_TEXT = 14;
 
     final int type;
     final String label, text;
