@@ -212,7 +212,11 @@ public class EmojiView extends View {
     @Override
     protected void onDraw(Canvas c) {
         Theme t = theme;
-        c.drawColor(t.bg);
+        c.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
+        fill.setColor(t.bg);
+        float tr = getWidth() * 0.055f;
+        tmp.set(0, 0, getWidth(), getHeight() + tr);
+        c.drawRoundRect(tmp, tr, tr, fill);
         int cur = currentCat();
         text.setTypeface(Typeface.DEFAULT_BOLD);
         text.setTextSize(12 * d);

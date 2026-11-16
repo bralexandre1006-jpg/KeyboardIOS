@@ -249,6 +249,7 @@ public class KeyboardView extends View {
         return getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
     }
 
+    private float topRadius;
     private boolean builtMic;
     private float measureW;
 
@@ -256,14 +257,15 @@ public class KeyboardView extends View {
         boolean land = landscape();
         float w = getWidth() > 0 ? getWidth() : measureW > 0 ? measureW : getResources().getDisplayMetrics().widthPixels;
         float p = (w - 6 * d) / 10f;
-        sugH = (searchMode ? (land ? 80 : 92) : (land ? 38 : 44)) * d;
+        sugH = searchMode ? (land ? 80 : 92) * d : (land ? 38 * d : 1.18f * p);
         rowH = land ? 42 * d : 1.39f * p;
         gapV = land ? 7 * d : 0.315f * p;
         gapH = land ? 6 * d : 0.16f * p;
         sidePad = 3 * d;
         bottomH = (showBottomBar && !land ? 50 : 4) * d;
-        radius = land ? 5 * d : 0.13f * p;
-        keysTop = sugH + 2 * d;
+        radius = land ? 6 * d : 0.2f * p;
+        topRadius = land ? 14 * d : 0.55f * p;
+        keysTop = sugH;
     }
 
     @Override
@@ -318,7 +320,10 @@ public class KeyboardView extends View {
     @Override
     protected void onDraw(Canvas c) {
         Theme t = theme;
-        c.drawColor(t.bg);
+        c.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
+        fill.setColor(t.bg);
+        tmp.set(0, 0, getWidth(), getHeight() + topRadius);
+        c.drawRoundRect(tmp, topRadius, topRadius, fill);
         boolean tp = pState == ST_TRACKPAD;
         if (searchMode) drawSearch(c);
         else if (showSuggestionBar && !tp) drawSuggestions(c);
@@ -344,16 +349,16 @@ public class KeyboardView extends View {
             }
             if (i > 0 && highlight != i && highlight != i - 1 && pressedSug != i && pressedSug != i - 1) {
                 fill.setColor(t.divider);
-                c.drawRect(l - 0.5f * d, 12 * d, l + 0.5f * d, sugH - 12 * d, fill);
+                c.drawRect(l - 0.5f * d, sugH * 0.3f, l + 0.5f * d, sugH * 0.72f, fill);
             }
             String s = suggestions[i];
             if (s.isEmpty()) continue;
             text.setColor(t.text);
             Typeface ef = EmojiData.typeface(getContext());
             text.setTypeface(ef != null && Character.isSurrogate(s.charAt(0)) ? ef : face);
-            text.setTextSize(Math.min(17 * d, unit * 0.43f));
+            text.setTextSize(Math.min(16 * d, unit * 0.4f));
             CharSequence e = TextUtils.ellipsize(s, new android.text.TextPaint(text), w - 14 * d, TextUtils.TruncateAt.END);
-            c.drawText(e.toString(), l + w / 2, cy - (text.descent() + text.ascent()) / 2, text);
+            c.drawText(e.toString(), l + w / 2, sugH * 0.52f - (text.descent() + text.ascent()) / 2, text);
         }
     }
 
@@ -417,11 +422,11 @@ public class KeyboardView extends View {
         if (tp) return t.special;
         boolean pressed = (pKey == k && pState != ST_NONE && pState != ST_GESTURE) || slideKey == k;
         switch (k.type) {
-            case Key.SHIFT: return shift != SHIFT_OFF ? t.shiftOn : (pressed ? t.key : t.special);
-            case Key.RETURN: return returnAction ? (pressed ? t.special : t.accent) : (pressed ? t.key : t.special);
-            case Key.SPACE: return pressed ? t.special : t.key;
+            case Key.SHIFT: return shift != SHIFT_OFF ? t.shiftOn : (pressed ? t.preview : t.special);
+            case Key.RETURN: return returnAction ? (pressed ? t.preview : t.accent) : (pressed ? t.preview : t.special);
+            case Key.SPACE: return pressed ? t.preview : t.key;
             case Key.CHAR: return pressed && pState == ST_MODE_SLIDE ? t.special : t.key;
-            default: return pressed ? t.key : t.special;
+            default: return pressed ? t.preview : t.special;
         }
     }
 
@@ -444,6 +449,16 @@ public class KeyboardView extends View {
             case Key.DELETE: drawBackspace(c, cx, cy, unit * 0.62f, fg); return;
             case Key.EMOJI: drawSmiley(c, cx, cy, unit * 0.27f, fg); return;
             case Key.MIC: drawMic(c, cx, cy, unit * 0.3f, fg); return;
+            case Key.RETURN: if (!returnAction && "retour".equals(k.label)) { drawReturn(c, cx, cy, unit * 0.5f, fg); return; } break;
+            case Key.SPACE: if (!langLabel.isEmpty()) {
+                    text.setTypeface(face);
+                    text.setTextSize(unit * 0.26f);
+                    text.setColor(t.subText);
+                    text.setTextAlign(Paint.Align.RIGHT);
+                    c.drawText(langLabel, r.right - unit * 0.22f, r.bottom - unit * 0.2f, text);
+                    text.setTextAlign(Paint.Align.CENTER);
+                }
+                return;
             default: break;
         }
         String label = k.label;
@@ -502,16 +517,19 @@ public class KeyboardView extends View {
 
     private void bubblePath(RectF key, RectF bubble) {
         float rr = radius;
+        float br = Math.min(bubble.width() * 0.24f, rr * 1.6f);
+        float neck = key.height() * 0.3f;
+        float wb = bubble.bottom;
         path.reset();
         path.moveTo(key.left, key.bottom - rr);
-        path.lineTo(key.left, key.top + rr * 0.3f);
-        path.cubicTo(key.left, key.top - (key.top - bubble.bottom) * 0.6f, bubble.left, bubble.bottom + (key.top - bubble.bottom) * 0.4f, bubble.left, bubble.bottom - rr * 0.2f);
-        path.lineTo(bubble.left, bubble.top + rr * 1.4f);
-        path.quadTo(bubble.left, bubble.top, bubble.left + rr * 1.4f, bubble.top);
-        path.lineTo(bubble.right - rr * 1.4f, bubble.top);
-        path.quadTo(bubble.right, bubble.top, bubble.right, bubble.top + rr * 1.4f);
-        path.lineTo(bubble.right, bubble.bottom - rr * 0.2f);
-        path.cubicTo(bubble.right, bubble.bottom + (key.top - bubble.bottom) * 0.4f, key.right, key.top - (key.top - bubble.bottom) * 0.6f, key.right, key.top + rr * 0.3f);
+        path.lineTo(key.left, wb + neck);
+        path.cubicTo(key.left, wb + neck * 0.45f, bubble.left, wb + neck * 0.55f, bubble.left, wb);
+        path.lineTo(bubble.left, bubble.top + br);
+        path.quadTo(bubble.left, bubble.top, bubble.left + br, bubble.top);
+        path.lineTo(bubble.right - br, bubble.top);
+        path.quadTo(bubble.right, bubble.top, bubble.right, bubble.top + br);
+        path.lineTo(bubble.right, wb);
+        path.cubicTo(bubble.right, wb + neck * 0.55f, key.right, wb + neck * 0.45f, key.right, wb + neck);
         path.lineTo(key.right, key.bottom - rr);
         path.quadTo(key.right, key.bottom, key.right - rr, key.bottom);
         path.lineTo(key.left + rr, key.bottom);
@@ -521,33 +539,37 @@ public class KeyboardView extends View {
 
     private void drawBubble(Canvas c, RectF key, RectF bubble) {
         bubblePath(key, bubble);
-        c.save();
-        c.translate(0, d);
-        fill.setColor(theme.dark ? 0x66000000 : 0x55000000);
-        c.drawPath(path, fill);
-        c.restore();
+        if (!theme.dark) {
+            c.save();
+            c.translate(0, d);
+            fill.setColor(0x33000000);
+            c.drawPath(path, fill);
+            c.restore();
+        }
         fill.setColor(theme.preview);
         c.drawPath(path, fill);
     }
 
     private void drawPreview(Canvas c, Key k) {
         RectF r = k.rect;
-        float bw = r.width() * 1.55f, bh = r.height() * 1.15f;
+        float bw = r.width() * 1.42f, bh = r.height() * 1.45f;
         float l = r.centerX() - bw / 2;
         l = Math.max(2 * d, Math.min(getWidth() - 2 * d - bw, l));
-        float bottom = r.top - 8 * d;
+        float bottom = r.top + r.height() * 0.04f;
         float top = Math.max(0, bottom - bh);
         tmp.set(l, top, l + bw, bottom);
         RectF bubble = new RectF(tmp);
         c.save();
-        c.scale(previewAnim, previewAnim, r.centerX(), r.bottom);
         drawBubble(c, r, bubble);
         String label = k.label;
         if (mode == Layouts.LETTERS && shift != SHIFT_OFF && k.isLetter()) label = label.toUpperCase();
         text.setTypeface(face);
-        text.setTextSize(label.length() > 1 ? unit * 0.5f : unit * 0.9f);
+        float ps = label.length() > 1 ? unit * 0.45f : unit * 0.74f;
+        text.setTextSize(ps);
         text.setColor(theme.text);
-        c.drawText(label, bubble.centerX(), bubble.centerY() - (text.descent() + text.ascent()) / 2, text);
+        float pcy = bubble.top + bubble.height() * 0.46f;
+        boolean low = k.isLetter() && label.equals(label.toLowerCase());
+        c.drawText(label, bubble.centerX(), low ? pcy + xRatio * ps / 2 : pcy + capRatio * ps / 2, text);
         c.restore();
     }
 
@@ -559,8 +581,8 @@ public class KeyboardView extends View {
         float pw = n * cw + 2 * pad, ph = r.height() * 1.15f + 2 * pad;
         float l = popupLeft ? r.right + pad - pw : r.left - pad;
         l = Math.max(2 * d, Math.min(getWidth() - 2 * d - pw, l));
-        float bottom = r.top - 8 * d;
-        float top = Math.max(0, bottom - ph);
+        float bottom = r.top + r.height() * 0.04f;
+        float top = Math.max(0, bottom - ph - r.height() * 0.2f);
         popupRect.set(l, top, l + pw, bottom);
         c.save();
         float sc = 0.55f + 0.45f * popupAnim;
@@ -710,6 +732,23 @@ public class KeyboardView extends View {
             fill.setColor(col);
             c.drawRect(cx - h * 0.45f, cy + h * 0.95f + oy, cx + h * 0.45f, cy + h * 0.95f + oy + 1.8f * d, fill);
         }
+    }
+
+    private void drawReturn(Canvas c, float cx, float cy, float s, int col) {
+        stroke.setColor(col);
+        stroke.setStrokeWidth(1.7f * d);
+        float w = s / 2, h = s * 0.32f;
+        path.reset();
+        path.moveTo(cx + w, cy - h);
+        path.lineTo(cx + w, cy + h * 0.25f);
+        path.quadTo(cx + w, cy + h, cx + w - h * 0.75f, cy + h);
+        path.lineTo(cx - w, cy + h);
+        c.drawPath(path, stroke);
+        path.reset();
+        path.moveTo(cx - w + h * 0.9f, cy + h * 0.1f);
+        path.lineTo(cx - w, cy + h);
+        path.lineTo(cx - w + h * 0.9f, cy + h * 1.9f);
+        c.drawPath(path, stroke);
     }
 
     private void drawBackspace(Canvas c, float cx, float cy, float s, int col) {
@@ -904,7 +943,6 @@ public class KeyboardView extends View {
             case Key.CHAR:
                 pState = ST_PRESS;
                 previewKey = k.label.length() <= 2 ? k : null;
-                if (previewKey != null) animatePreviewIn();
                 if (k.alts != null) handler.postDelayed(longPress, 380);
                 break;
             case Key.SHIFT:

@@ -79,6 +79,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         emojiView.setListener(this);
         emojiView.setVisibility(View.GONE);
         root = new FrameLayout(this);
+        root.setBackgroundColor(0);
         root.addView(keyboard, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(emojiView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return root;
