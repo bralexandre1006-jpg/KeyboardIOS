@@ -70,6 +70,7 @@ public class KeyboardView extends View {
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint trailPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
+    private final android.text.TextPaint sugPaint = new android.text.TextPaint();
     private final RectF tmp = new RectF();
 
     private int pId = -1, pState = ST_NONE;
@@ -332,7 +333,8 @@ public class KeyboardView extends View {
         if (voiceActive) drawVoice(c);
         if (menuOpen) drawMenu(c);
         if (pState == ST_GESTURE && trail.size() > 1) drawTrail(c);
-        if (previewKey != null && pState != ST_POPUP) drawPreview(c, previewKey);
+        if (fadeKey != null && fadeKey != previewKey) drawPreview(c, fadeKey, fadeAlpha);
+        if (previewKey != null && pState != ST_POPUP) drawPreview(c, previewKey, 1f);
         if (pState == ST_POPUP && popupAlts != null) drawPopup(c);
     }
 
@@ -357,7 +359,8 @@ public class KeyboardView extends View {
             Typeface ef = EmojiData.typeface(getContext());
             text.setTypeface(ef != null && Character.isSurrogate(s.charAt(0)) ? ef : face);
             text.setTextSize(Math.min(16 * d, unit * 0.4f));
-            CharSequence e = TextUtils.ellipsize(s, new android.text.TextPaint(text), w - 14 * d, TextUtils.TruncateAt.END);
+            sugPaint.set(text);
+            CharSequence e = TextUtils.ellipsize(s, sugPaint, w - 14 * d, TextUtils.TruncateAt.END);
             c.drawText(e.toString(), l + w / 2, sugH * 0.52f - (text.descent() + text.ascent()) / 2, text);
         }
     }
@@ -547,10 +550,33 @@ public class KeyboardView extends View {
             c.restore();
         }
         fill.setColor(theme.preview);
+        fill.setAlpha(bubbleAlpha);
         c.drawPath(path, fill);
+        fill.setAlpha(255);
     }
 
-    private void drawPreview(Canvas c, Key k) {
+    private Key fadeKey;
+    private float fadeAlpha;
+    private android.animation.ValueAnimator fadeAnimator;
+
+    private void startPreviewFade(Key k) {
+        if (fadeAnimator != null) fadeAnimator.cancel();
+        fadeKey = k;
+        fadeAnimator = android.animation.ValueAnimator.ofFloat(1f, 0f);
+        fadeAnimator.setDuration(110);
+        fadeAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        fadeAnimator.addUpdateListener(a -> {
+            fadeAlpha = (float) a.getAnimatedValue();
+            if (fadeAlpha <= 0.01f) fadeKey = null;
+            invalidate();
+        });
+        fadeAnimator.start();
+    }
+
+    private int bubbleAlpha = 255;
+
+    private void drawPreview(Canvas c, Key k, float alpha) {
+        bubbleAlpha = (int) (255 * alpha);
         RectF r = k.rect;
         float bw = r.width() * 1.42f, bh = r.height() * 1.45f;
         float l = r.centerX() - bw / 2;
@@ -567,9 +593,12 @@ public class KeyboardView extends View {
         float ps = label.length() > 1 ? unit * 0.45f : unit * 0.74f;
         text.setTextSize(ps);
         text.setColor(theme.text);
+        text.setAlpha(bubbleAlpha);
         float pcy = bubble.top + bubble.height() * 0.46f;
         boolean low = k.isLetter() && label.equals(label.toLowerCase());
         c.drawText(label, bubble.centerX(), low ? pcy + xRatio * ps / 2 : pcy + capRatio * ps / 2, text);
+        text.setAlpha(255);
+        bubbleAlpha = 255;
         c.restore();
     }
 
@@ -827,10 +856,10 @@ public class KeyboardView extends View {
         @Override public void run() {
             if (pState != ST_DELETE) return;
             deleteCount++;
-            boolean word = deleteCount > 20;
+            boolean word = deleteCount > 26;
             listener.onDelete(word);
-            feedback.key(Key.DELETE);
-            handler.postDelayed(this, word ? 220 : 85);
+            if (deleteCount % (word ? 1 : 2) == 0) feedback.key(Key.DELETE);
+            handler.postDelayed(this, word ? 130 : deleteCount < 6 ? 70 : 42);
         }
     };
 
@@ -957,7 +986,7 @@ public class KeyboardView extends View {
                 pState = ST_DELETE;
                 deleteCount = 0;
                 listener.onDelete(false);
-                handler.postDelayed(deleteRepeat, 450);
+                handler.postDelayed(deleteRepeat, 360);
                 break;
             case Key.SPACE:
                 pState = ST_PRESS;
@@ -1142,6 +1171,7 @@ public class KeyboardView extends View {
         handler.removeCallbacks(longPress);
         handler.removeCallbacks(deleteRepeat);
         handler.removeCallbacks(globeLong);
+        if (previewKey != null) startPreviewFade(previewKey);
         pId = -1; pState = ST_NONE; pKey = null; slideKey = null; previewKey = null;
         popupAlts = null; pressedSug = -1; pressedBottom = 0; trail.clear();
         invalidate();

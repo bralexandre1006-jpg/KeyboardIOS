@@ -45,6 +45,12 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     private String pendingCorrection;
     private int emojiSlot = -1;
     private final List<PointF> touches = new ArrayList<>();
+    private final java.util.concurrent.ExecutorService worker = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable sugTask = this::updateSuggestionsNow;
+    private int sugGen;
+    private String pendingFor;
+    private int selStart = -1, selEnd = -1;
     private boolean searching, swipeBeforeSearch;
     private final StringBuilder query = new StringBuilder();
     private List<String> results = new ArrayList<>();
@@ -145,6 +151,8 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         }
         showKeyboard();
         revertOriginal = revertCorrected = null;
+        selStart = info.initialSelStart;
+        selEnd = info.initialSelEnd;
         gestureWord = null;
         autoSpaced = false;
         updateShift();
@@ -184,6 +192,8 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     @Override
     public void onUpdateSelection(int os, int oe, int ns, int ne, int cs, int ce) {
         super.onUpdateSelection(os, oe, ns, ne, cs, ce);
+        selStart = ns;
+        selEnd = ne;
         if (listening || searching) return;
         updateShift();
         updateSuggestions();
@@ -264,13 +274,34 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     }
 
     private void updateSuggestions() {
+        main.removeCallbacks(sugTask);
+        main.post(sugTask);
+    }
+
+    private static String wordAtEnd(String b) {
+        int i = b.length();
+        while (i > 0 && wordChar(b.charAt(i - 1))) i--;
+        while (i < b.length() && (b.charAt(i) == '\'' || b.charAt(i) == '’' || b.charAt(i) == '-')) i++;
+        return b.substring(i);
+    }
+
+    private static boolean startOfSentence(String b) {
+        b = b.trim();
+        if (b.isEmpty()) return true;
+        char c = b.charAt(b.length() - 1);
+        return c == '.' || c == '!' || c == '?' || c == '…';
+    }
+
+    private void updateSuggestionsNow() {
         if (keyboard == null || searching) return;
+        sugGen++;
         pendingCorrection = null;
+        pendingFor = null;
         emojiSlot = -1;
         for (int i = 0; i < 3; i++) sugValues[i] = "";
         if (!suggest || !dict.ready) { keyboard.setSuggestions(new String[3], -1); return; }
-        String word = currentWord();
         String b = before(64);
+        String word = wordAtEnd(b);
         if (gestureWord != null && b.endsWith(gestureWord)) {
             String[] show = new String[3];
             List<String> alts = new ArrayList<>();
@@ -285,7 +316,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         gestureWord = null;
         if (word.isEmpty()) {
             List<String> p = dict.predict(previousWord(b + "x"), 3);
-            boolean start = sentenceStart();
+            boolean start = b.isEmpty() || b.endsWith("\n") || (Character.isWhitespace(b.charAt(b.length() - 1)) && startOfSentence(b));
             String[] defaults = start ? new String[]{"Je", "J’ai", "Le"} : new String[]{"de", "et", "la"};
             for (String s : defaults) if (p.size() < 3 && !p.contains(s.toLowerCase())) p.add(s);
             for (int i = 0; i < 3 && i < p.size(); i++) sugValues[i] = start ? cap(p.get(i)) : p.get(i);
@@ -294,31 +325,44 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             return;
         }
         if (word.length() != touches.size()) touches.clear();
-        dict.setTouches(touches.isEmpty() ? null : touches, touches.isEmpty() ? null : keyboard.letterCenters(), keyboard.keyWidth());
-        String corr = autocorrect ? dict.correct(word) : null;
-        dict.setTouches(null, null, 0);
-        List<String> comp = dict.complete(word, 3);
+        final List<PointF> t = touches.isEmpty() ? null : new ArrayList<>(touches);
+        final java.util.Map<Character, PointF> centers = t == null ? null : keyboard.letterCenters();
+        final float keyW = keyboard.keyWidth();
+        final boolean properNoun = Character.isUpperCase(word.charAt(0)) && !startOfSentence(b.substring(0, b.length() - word.length()));
+        final boolean ac = autocorrect;
+        final int gen = sugGen;
+        final String w = word;
+        String[] quick = {"«" + word + "»", "", ""};
+        keyboard.setSuggestions(quick, -1);
         sugValues[0] = word;
-        int hl = -1;
-        int slot = 1;
-        boolean properNoun = Character.isUpperCase(word.charAt(0)) && !sentenceStartBefore(word.length());
-        if (corr != null && !corr.equalsIgnoreCase(word)) {
-            String c = matchCase(word, corr);
-            sugValues[1] = c;
-            slot = 2;
-            if (dict.lastConfident && !properNoun) { pendingCorrection = c; hl = 1; }
-        }
-        for (String c : comp) {
-            if (slot > 2) break;
-            String m = matchCase(word, c);
-            if (m.equals(sugValues[1]) || m.equals(word)) continue;
-            sugValues[slot++] = m;
-        }
-        String emo = EmojiData.forWord(pendingCorrection != null ? pendingCorrection : word);
-        if (emo == null) emo = EmojiData.forWord(word);
-        if (emo != null) { sugValues[2] = emo; emojiSlot = 2; }
-        String[] show = {"«" + word + "»", sugValues[1], sugValues[2]};
-        keyboard.setSuggestions(show, hl);
+        worker.execute(() -> {
+            String[] cr = ac ? dict.correctFull(w, t, centers, keyW) : new String[]{null, "0"};
+            List<String> comp = dict.complete(w, 3);
+            String corr = cr[0];
+            boolean confident = "1".equals(cr[1]);
+            String c1 = corr != null && !corr.equalsIgnoreCase(w) ? matchCase(w, corr) : null;
+            String emo = EmojiData.forWord(c1 != null && confident ? c1 : w);
+            if (emo == null) emo = EmojiData.forWord(w);
+            final String fEmo = emo;
+            main.post(() -> {
+                if (gen != sugGen) return;
+                int hl = -1, slot = 1;
+                sugValues[0] = w; sugValues[1] = ""; sugValues[2] = "";
+                if (c1 != null) {
+                    sugValues[1] = c1;
+                    slot = 2;
+                    if (confident && !properNoun) { pendingCorrection = c1; pendingFor = w; hl = 1; }
+                }
+                for (String c : comp) {
+                    if (slot > 2) break;
+                    String m = matchCase(w, c);
+                    if (m.equals(sugValues[1]) || m.equals(w)) continue;
+                    sugValues[slot++] = m;
+                }
+                if (fEmo != null) { sugValues[2] = fEmo; emojiSlot = 2; }
+                keyboard.setSuggestions(new String[]{"«" + w + "»", sugValues[1], sugValues[2]}, hl);
+            });
+        });
     }
 
     private static String cap(String s) {
@@ -328,15 +372,24 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     /** Applies pending autocorrection to the word before the cursor. Returns true if replaced. */
     private boolean applyCorrection() {
         InputConnection ic = ic();
-        if (ic == null || !autocorrect || pendingCorrection == null) return false;
-        String word = currentWord();
+        if (ic == null || !autocorrect) return false;
+        String b = before(64);
+        String word = wordAtEnd(b);
         if (word.isEmpty()) return false;
-        String corr = pendingCorrection;
+        String corr = word.equals(pendingFor) ? pendingCorrection : null;
+        if (corr == null && !word.equals(pendingFor)) {
+            String[] cr = dict.correctFull(word, word.length() == touches.size() ? new ArrayList<>(touches) : null,
+                    word.length() == touches.size() ? keyboard.letterCenters() : null, keyboard.keyWidth());
+            boolean properNoun = Character.isUpperCase(word.charAt(0)) && !startOfSentence(b.substring(0, b.length() - word.length()));
+            if (cr[0] != null && "1".equals(cr[1]) && !properNoun && !cr[0].equalsIgnoreCase(word)) corr = matchCase(word, cr[0]);
+        }
+        if (corr == null) return false;
         ic.deleteSurroundingText(word.length(), 0);
         ic.commitText(corr, 1);
         revertOriginal = word;
         revertCorrected = corr;
         pendingCorrection = null;
+        pendingFor = null;
         return true;
     }
 
@@ -581,8 +634,23 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
 
     @Override
     public void onCursor(int dx, int dy) {
-        for (int i = 0; i < Math.abs(dx); i++) sendDownUpKeyEvents(dx > 0 ? KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT);
-        for (int i = 0; i < Math.abs(dy); i++) sendDownUpKeyEvents(dy > 0 ? KeyEvent.KEYCODE_DPAD_DOWN : KeyEvent.KEYCODE_DPAD_UP);
+        InputConnection ic = ic();
+        if (ic == null || dx == 0) return;
+        int pos = selStart;
+        if (pos < 0) {
+            CharSequence bb = ic.getTextBeforeCursor(10000, 0);
+            pos = bb == null ? 0 : bb.length();
+        }
+        if (dx < 0) {
+            CharSequence bb = ic.getTextBeforeCursor(-dx, 0);
+            pos -= bb == null ? 0 : bb.length();
+        } else {
+            CharSequence a = ic.getTextAfterCursor(dx, 0);
+            pos += a == null ? 0 : a.length();
+        }
+        pos = Math.max(0, pos);
+        ic.setSelection(pos, pos);
+        selStart = selEnd = pos;
     }
 
     @Override

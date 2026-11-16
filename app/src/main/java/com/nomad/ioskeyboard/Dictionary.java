@@ -37,6 +37,14 @@ class Dictionary {
     private float touchKeyW;
     private boolean useTouches;
 
+    /** Thread-safe correction: returns {correction or null, "1" if confident}. */
+    synchronized String[] correctFull(String word, List<PointF> t, Map<Character, PointF> centers, float keyW) {
+        setTouches(t, centers, keyW);
+        String c = correct(word);
+        setTouches(null, null, 0);
+        return new String[]{c, lastConfident ? "1" : "0"};
+    }
+
     void setTouches(List<PointF> t, Map<Character, PointF> centers, float keyW) {
         touches = t; touchCenters = centers; touchKeyW = keyW;
     }
@@ -183,12 +191,12 @@ class Dictionary {
 
     // ---------- Queries ----------
 
-    boolean isValid(String w) {
+    synchronized boolean isValid(String w) {
         String l = w.toLowerCase().replace('’', '\'');
         return SLANG.contains(l) || exact.containsKey(l) || userWords.containsKey(l) || inLexicon(l);
     }
 
-    List<String> complete(String prefix, int n) {
+    synchronized List<String> complete(String prefix, int n) {
         List<String> out = new ArrayList<>();
         if (!ready || prefix.isEmpty()) return out;
         String kp = norm(prefix);
@@ -226,7 +234,7 @@ class Dictionary {
     }
 
     /** Returns a correction for an unknown word, or null. */
-    String correct(String word) {
+    synchronized String correct(String word) {
         lastConfident = true;
         if (!ready || word.length() < 2) return null;
         for (int i = 0; i < word.length(); i++) if (Character.isDigit(word.charAt(i))) return null;
@@ -344,7 +352,7 @@ class Dictionary {
 
     // ---------- Gesture typing ----------
 
-    List<String> decodeGesture(List<PointF> pts, Map<Character, PointF> centers, float keyW) {
+    synchronized List<String> decodeGesture(List<PointF> pts, Map<Character, PointF> centers, float keyW) {
         List<String> out = new ArrayList<>();
         if (!ready || pts.size() < 2 || centers.isEmpty()) return out;
         final int N = 48;
@@ -455,7 +463,7 @@ class Dictionary {
 
     // ---------- Learning ----------
 
-    void learn(String prev, String word) {
+    synchronized void learn(String prev, String word) {
         if (word == null || word.isEmpty()) return;
         String w = word.toLowerCase().replace('’', '\'');
         if (!exact.containsKey(w)) {
@@ -475,14 +483,14 @@ class Dictionary {
         dirty = true;
     }
 
-    void addWord(String word) {
+    synchronized void addWord(String word) {
         String w = word.toLowerCase().replace('’', '\'');
         Integer c = userWords.get(w);
         userWords.put(w, Math.max(2, c == null ? 2 : c + 1));
         dirty = true;
     }
 
-    List<String> predict(String prev, int n) {
+    synchronized List<String> predict(String prev, int n) {
         List<String> out = new ArrayList<>();
         if (prev == null || prev.isEmpty()) return out;
         Map<String, Integer> m = bigrams.get(prev.toLowerCase().replace('’', '\''));
@@ -518,7 +526,7 @@ class Dictionary {
         }
     }
 
-    void save() {
+    synchronized void save() {
         if (!dirty) return;
         dirty = false;
         StringBuilder w = new StringBuilder();
