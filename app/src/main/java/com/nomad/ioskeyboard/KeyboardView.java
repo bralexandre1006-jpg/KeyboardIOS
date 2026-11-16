@@ -119,6 +119,7 @@ public class KeyboardView extends View {
     private int eggType;
     private long eggStart;
     private android.graphics.Bitmap eggBitmap;
+    private final Paint bmpPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private float[][] eggParts;
 
     void playEgg(int type, android.graphics.Bitmap bmp) {
@@ -192,7 +193,7 @@ public class KeyboardView extends View {
                 c.save();
                 c.clipPath(clip);
                 float bw = eggBitmap.getWidth(), bh = eggBitmap.getHeight(), s2 = 2 * r / Math.min(bw, bh);
-                c.drawBitmap(eggBitmap, null, new RectF(-bw * s2 / 2, -bh * s2 / 2, bw * s2 / 2, bh * s2 / 2), null);
+                c.drawBitmap(eggBitmap, null, new RectF(-bw * s2 / 2, -bh * s2 / 2, bw * s2 / 2, bh * s2 / 2), bmpPaint);
                 c.restore();
             } else {
                 fill.setColor(0xFFFF3D8B);
@@ -219,7 +220,7 @@ public class KeyboardView extends View {
     private void drawToken(Canvas c, float size) {
         if (eggBitmap != null) {
             float bw = eggBitmap.getWidth(), bh = eggBitmap.getHeight(), s2 = size / Math.max(bw, bh);
-            c.drawBitmap(eggBitmap, null, new RectF(-bw * s2 / 2, -bh * s2 / 2, bw * s2 / 2, bh * s2 / 2), null);
+            c.drawBitmap(eggBitmap, null, new RectF(-bw * s2 / 2, -bh * s2 / 2, bw * s2 / 2, bh * s2 / 2), bmpPaint);
             return;
         }
         float r = size * 0.5f;

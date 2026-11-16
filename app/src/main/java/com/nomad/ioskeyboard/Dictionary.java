@@ -330,7 +330,10 @@ class Dictionary {
                 float dist = distance(k, cand, max);
                 if (dist > max) continue;
                 float sc = dist - freq[idx] * 1.2f + (enOnly != null && enOnly.get(idx) ? 0.3f : 0f);
-                if (sc < bestScore) { secondScore = bestScore; bestScore = sc; best = idx; }
+                if (sc < bestScore) {
+                    if (best < 0 || !keys[best].equals(cand)) secondScore = bestScore;
+                    bestScore = sc; best = idx;
+                }
                 else if (sc < secondScore && !keys[idx].equals(keys[best])) secondScore = sc;
             }
         }
@@ -338,7 +341,7 @@ class Dictionary {
         if (best < 0) { if (split != null) lastConfident = true; return split; }
         float bd = distance(k, keys[best], max);
         boolean clear = secondScore - bestScore > 0.12f;
-        lastConfident = vowel && len >= 4 && clear && (bd <= 0.6f || (bd <= 1.05f && freq[best] >= 0.4f)
+        lastConfident = (vowel || bd <= 0.6f) && len >= 4 && clear && (bd <= 0.6f || (bd <= 1.05f && freq[best] >= 0.4f)
                 || (bd <= 1.6f && len >= 7 && freq[best] >= 0.4f) || (len >= 9 && bd <= len * 0.3f && freq[best] >= 0.3f));
         if (!lastConfident && split != null) { lastConfident = true; return split; }
         return words[best];
@@ -526,10 +529,7 @@ class Dictionary {
     synchronized void learn(String prev, String word) {
         if (word == null || word.isEmpty()) return;
         String w = word.toLowerCase().replace('’', '\'');
-        if (!exact.containsKey(w)) {
-            Integer c = userWords.get(w);
-            userWords.put(w, c == null ? 1 : c + 1);
-        }
+        if (!exact.containsKey(w) && !inLexicon(w) && !userKnown(w)) return;
         if (prev != null && !prev.isEmpty()) {
             String p = prev.toLowerCase().replace('’', '\'');
             Map<String, Integer> m = bigrams.get(p);
@@ -605,6 +605,7 @@ class Dictionary {
         bigrams.clear();
         if (ctx == null) return;
         SharedPreferences p = store();
+        if (!p.getBoolean("v2", false)) p.edit().clear().putBoolean("v2", true).apply();
         for (String line : p.getString("words", "").split("\n")) {
             int t = line.indexOf('\t');
             if (t > 0) userWords.put(line.substring(0, t), Integer.parseInt(line.substring(t + 1)));

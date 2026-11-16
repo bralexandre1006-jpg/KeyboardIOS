@@ -978,7 +978,6 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         android.graphics.Bitmap bmp = null;
         try (java.io.InputStream in = getAssets().open(type == 1 ? "egg_token.png" : "egg_31.jpg")) {
             android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
-            o.inSampleSize = 2;
             bmp = android.graphics.BitmapFactory.decodeStream(in, null, o);
         } catch (Exception ignored) { }
         keyboard.playEgg(type, bmp);
