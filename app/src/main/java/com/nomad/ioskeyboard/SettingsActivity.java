@@ -159,25 +159,6 @@ public class SettingsActivity extends Activity {
         tip.setPadding(dp(6), dp(12), dp(6), 0);
         add(tip, 0);
 
-        section("EMOJI");
-        LinearLayout em = card();
-        em.addView(text("Emoji style iOS", 22, Ui.TEXT, Ui.heavy(this)));
-        TextView et = text("Importez le .zip du module « iOS Emoji » (ou un .ttf) : les emoji du clavier passent en style Apple. Pour toutes les apps, installez le module avec Magisk/KernelSU.", 15, Ui.SUB, Ui.regular(this));
-        et.setPadding(0, dp(6), 0, dp(4));
-        em.addView(et);
-        Ui.GoldButton imp = new Ui.GoldButton(this, "IMPORTER LES EMOJI");
-        imp.setOnClickListener(v -> {
-            Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            i.addCategory(Intent.CATEGORY_OPENABLE);
-            i.setType("*/*");
-            startActivityForResult(i, REQ_FONT);
-        });
-        em.addView(imp);
-        TextView reset = link("Revenir aux emoji du système", Ui.SUB);
-        reset.setOnClickListener(v -> { if (EmojiData.fontFile(this).delete()) toast("Emoji système rétablis"); });
-        em.addView(reset);
-        add(em, 0);
-
         section("DONNÉES");
         LinearLayout data = card();
         TextView del = link("Effacer les mots appris", Ui.RED);

@@ -18,8 +18,8 @@ import android.view.animation.OvershootInterpolator;
 /** Hand-drawn widgets for the app screen (dark "dashboard" style). */
 final class Ui {
     static final int BG = 0xFF0B0B0D, CARD_TOP = 0xFF1D1D21, CARD_BOTTOM = 0xFF131316, BORDER = 0xFF27272C,
-            TILE = 0xFF1F1F23, TILE_ON = 0xFF2A2516, TEXT = 0xFFFFFFFF, SUB = 0xFF8C8C95,
-            GOLD_A = 0xFFFFE27A, GOLD_B = 0xFFF5A524, GOLD = 0xFFF7B733, GREEN = 0xFF4ADE80, GREEN_BG = 0xFF14301F,
+            TILE = 0xFF1F1F23, TILE_ON = 0xFF2E1624, TEXT = 0xFFFFFFFF, SUB = 0xFF8C8C95,
+            GOLD_A = 0xFFFF9ACB, GOLD_B = 0xFFFF3D8B, GOLD = 0xFFFF5FA2, GREEN = 0xFF4ADE80, GREEN_BG = 0xFF14301F,
             ORANGE = 0xFFFB923C, ORANGE_BG = 0xFF3A2414, RED = 0xFFFF5A5F, KEY = 0xFF2C2C31, KEY_DARK = 0xFF1A1A1E;
 
     private static Typeface regular, semibold, heavy;
@@ -72,11 +72,11 @@ final class Ui {
             float w = getWidth(), h = getHeight(), m = 10 * d;
             RectF r = new RectF(m * 0.4f, m * 0.6f, w - m * 0.4f, h - m * 1.2f);
             p.setShader(new LinearGradient(r.left, r.top, r.right, r.bottom, GOLD_A, GOLD_B, Shader.TileMode.CLAMP));
-            p.setShadowLayer(16 * d, 0, 4 * d, 0x88F5A524);
+            p.setShadowLayer(16 * d, 0, 4 * d, 0x88FF3D8B);
             c.drawRoundRect(r, 20 * d, 20 * d, p);
             p.setShader(null);
             p.clearShadowLayer();
-            p.setColor(0xFF1A1206);
+            p.setColor(0xFFFFFFFF);
             p.setTextSize(19 * d);
             p.setLetterSpacing(0.04f);
             c.drawText(label, r.centerX(), r.centerY() - (p.descent() + p.ascent()) / 2, p);
@@ -195,12 +195,12 @@ final class Ui {
             c.drawRoundRect(r, 22 * d, 22 * d, p);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(d);
-            p.setColor(blend(0xFF26262A, 0xFF5A4517, t));
+            p.setColor(blend(0xFF26262A, 0xFF5E2240, t));
             c.drawRoundRect(new RectF(0.5f * d, 0.5f * d, w - 0.5f * d, h - 0.5f * d), 22 * d, 22 * d, p);
             p.setStyle(Paint.Style.FILL);
             p.setTypeface(regular(getContext()));
             p.setTextSize(15 * d);
-            p.setColor(blend(SUB, 0xFFE8D7A8, t));
+            p.setColor(blend(SUB, 0xFFF8C6DD, t));
             c.drawText(label, 16 * d, 32 * d, p);
             p.setTypeface(heavy(getContext()));
             p.setTextSize(23 * d);
@@ -210,7 +210,7 @@ final class Ui {
             p.setColor(blend(0xFF3A3A40, GOLD, t));
             c.drawCircle(cx, cy, 6 * d, p);
             if (t > 0) {
-                p.setColor(Color.argb((int) (70 * t), 0xF7, 0xB7, 0x33));
+                p.setColor(Color.argb((int) (70 * t), 0xFF, 0x5F, 0xA2));
                 c.drawCircle(cx, cy, 6 * d + 6 * d * t, p);
             }
         }
@@ -271,7 +271,7 @@ final class Ui {
             p.setShader(new LinearGradient(ox, oy, ox + s, oy + s, GOLD_A, GOLD_B, Shader.TileMode.CLAMP));
             c.drawRoundRect(new RectF(ox, oy, ox + s, oy + s), s * 0.28f, s * 0.28f, p);
             p.setShader(null);
-            p.setColor(0xFF1A1206);
+            p.setColor(0xFFFFFFFF);
             float pad = s * 0.17f, gap = s * 0.05f;
             float kw = (s - 2 * pad - 3 * gap) / 4, kh = s * 0.13f;
             float top = oy + s * 0.25f;
@@ -418,7 +418,7 @@ final class Ui {
             if (label != null && r.height() > 18 * d) {
                 p.setTypeface(semibold(getContext()));
                 p.setTextSize(r.height() * 0.42f);
-                p.setColor(blend(0xFFBDBDC4, 0xFF1A1206, t));
+                p.setColor(blend(0xFFBDBDC4, 0xFFFFFFFF, t));
                 c.drawText(label, cx, cy - (p.descent() + p.ascent()) / 2, p);
             }
         }
