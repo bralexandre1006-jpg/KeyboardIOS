@@ -267,7 +267,7 @@ final class Ui {
             {0.084f, 0.409f, 0.232f, 0.585f}, {0.260f, 0.409f, 0.399f, 0.585f}, {0.426f, 0.409f, 0.564f, 0.585f},
             {0.599f, 0.409f, 0.740f, 0.585f}, {0.768f, 0.409f, 0.916f, 0.585f},
             {0.084f, 0.643f, 0.209f, 0.813f}, {0.235f, 0.643f, 0.764f, 0.813f}, {0.791f, 0.643f, 0.916f, 0.813f}};
-    private static final String[] LOGO_LETTERS = {null, null, null, null, null, null, null, null, "R", "S", "T", null, null, null, null};
+    private static final String[] LOGO_LETTERS = {null, null, null, null, null, null, null, null, null, null, null, null, null, null, null};
 
     /** Draws the keyboard logo in box (l,t,w) with w:h = 2:1. progress 0..1 builds it key by key. */
     static void drawLogo(Canvas c, Paint p, float l, float t, float w, float progress, int fg, int bg) {

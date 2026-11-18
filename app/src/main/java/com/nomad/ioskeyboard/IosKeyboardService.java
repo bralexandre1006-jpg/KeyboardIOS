@@ -368,10 +368,21 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         return c == '.' || c == '!' || c == '?' || c == '…';
     }
 
+    private String noCapAfter;
+
+    private static boolean endsSentence(String w) {
+        if (w.isEmpty()) return false;
+        char c = w.charAt(w.length() - 1);
+        return c == '.' || c == '!' || c == '?' || c == '…';
+    }
+
     private void updateShift() {
         if (keyboard == null || searching) return;
+        String nc = noCapAfter;
+        noCapAfter = null;
         if (keyboard.mode != Layouts.LETTERS) return;
-        keyboard.setShift(autocap && sentenceStart() ? KeyboardView.SHIFT_ON : KeyboardView.SHIFT_OFF);
+        boolean cap = autocap && (nc != null ? endsSentence(nc) : sentenceStart());
+        keyboard.setShift(cap ? KeyboardView.SHIFT_ON : KeyboardView.SHIFT_OFF);
     }
 
     private String matchCase(String typed, String word) {
@@ -596,10 +607,12 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
                 ic.commitText(rep, 1);
                 revertOriginal = w;
                 revertCorrected = rep;
+                noCapAfter = rep;
             } else {
                 String typed = currentWord();
                 boolean corrected = applyCorrection();
                 if (!corrected) revertOriginal = null;
+                else noCapAfter = revertCorrected;
                 learnWord(corrected ? revertCorrected : typed);
             }
             ic.commitText(" ", 1);
@@ -775,6 +788,7 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         ic.endBatchEdit();
         revertOriginal = null;
         autoSpaced = true;
+        noCapAfter = word.isEmpty() || i != 0 ? s : word;
         afterEdit();
     }
 
