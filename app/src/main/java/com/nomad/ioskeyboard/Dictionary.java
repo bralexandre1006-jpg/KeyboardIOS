@@ -301,7 +301,7 @@ class Dictionary {
         Integer direct = byKey.get(k);
         Integer self = exact.get(lw);
         if (direct != null && !words[direct].equals(lw)
-                && (self == null ? (!inLexicon(lw) || freq[direct] > 0.5f) : freq[direct] > freq[self] + 0.1f)) return words[direct];
+                && (self == null ? (!inLexicon(lw) || freq[direct] > 0.5f) : freq[direct] > freq[self] + (enOnly != null && enOnly.get(self) ? 0.3f : 0.1f))) return words[direct];
         int apo = Math.max(word.lastIndexOf('\''), word.lastIndexOf('’'));
         String headL = apo > 0 ? lw.substring(0, apo) : "";
         boolean elisionHead = apo > 0 && java.util.Arrays.asList("c", "d", "j", "l", "m", "n", "s", "t", "qu", "jusqu", "lorsqu", "puisqu", "quoiqu", "presqu", "aujourd").contains(headL);
@@ -312,7 +312,6 @@ class Dictionary {
         }
         if (isValid(word)) return null;
         String el = elide(lw);
-        if (el != null) return el;
         boolean vowel = false;
         for (int i = 0; i < k.length(); i++) if ("aeiouy".indexOf(k.charAt(i)) >= 0) vowel = true;
         useTouches = touches != null && touchCenters != null && !touchCenters.isEmpty() && touches.size() == k.length() && touchKeyW > 0;
@@ -340,9 +339,13 @@ class Dictionary {
                 else if (sc < secondScore && !keys[idx].equals(keys[best])) secondScore = sc;
             }
         }
-        String split = split(lw);
+        float bd = best < 0 ? Float.MAX_VALUE : distance(k, keys[best], max);
+        if (el != null) {
+            Integer er = byKey.get(norm(el.substring(el.indexOf('\'') + 1)));
+            if (!(bd <= 0.5f && er != null && freq[best] >= Math.min(0.55f, freq[er] - 0.05f))) { lastConfident = true; return el; }
+        }
+        String split = k.equals(lw.replace("'", "").replace("’", "").replace("-", "")) ? split(lw) : null;
         if (best < 0) { if (split != null) lastConfident = true; return split; }
-        float bd = distance(k, keys[best], max);
         boolean clear = secondScore - bestScore > 0.12f;
         if (len <= 3) {
             lastConfident = secondScore - bestScore > 0.005f && bd <= 0.6f && freq[best] >= 0.6f && keys[best].length() == len

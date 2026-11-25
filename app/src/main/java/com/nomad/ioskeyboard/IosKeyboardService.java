@@ -172,6 +172,20 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     }
 
     @Override
+    public android.view.inputmethod.InlineSuggestionsRequest onCreateInlineSuggestionsRequest(Bundle uiExtras) {
+        if (Build.VERSION.SDK_INT < 30) return null;
+        android.widget.inline.InlinePresentationSpec spec = new android.widget.inline.InlinePresentationSpec.Builder(
+                new android.util.Size(1, 1), new android.util.Size(1, 1)).build();
+        return new android.view.inputmethod.InlineSuggestionsRequest.Builder(java.util.Collections.singletonList(spec))
+                .setMaxSuggestionCount(1).build();
+    }
+
+    @Override
+    public boolean onInlineSuggestionsResponse(android.view.inputmethod.InlineSuggestionsResponse response) {
+        return true;
+    }
+
+    @Override
     public void onStartInputView(EditorInfo info, boolean restarting) {
         super.onStartInputView(info, restarting);
         reloadDictionary();
@@ -411,8 +425,10 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
     }
 
     private static boolean startOfSentence(String b) {
-        b = b.trim();
-        if (b.isEmpty()) return true;
+        int i = b.length();
+        while (i > 0 && (b.charAt(i - 1) == ' ' || b.charAt(i - 1) == '\t')) i--;
+        if (i == 0 || b.charAt(i - 1) == '\n') return true;
+        b = b.substring(0, i).trim();
         char c = b.charAt(b.length() - 1);
         return c == '.' || c == '!' || c == '?' || c == '…';
     }
