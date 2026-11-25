@@ -359,6 +359,38 @@ class Dictionary {
         return words[best];
     }
 
+    /** Up to n distinct close words for a misspelled word, best first. */
+    synchronized List<String> similar(String word, int n) {
+        List<String> out = new ArrayList<>();
+        if (!ready || word.length() < 2) return out;
+        String first = correct(word);
+        if (first != null) out.add(first);
+        String k = norm(word);
+        int len = k.length();
+        float max = len <= 4 ? 1.1f : len <= 7 ? 1.7f : Math.max(2.2f, len * 0.3f);
+        useTouches = false;
+        List<float[]> sc = new ArrayList<>();
+        for (List<Integer> l : byFirst.values())
+            for (int idx : l) {
+                String cand = keys[idx];
+                if (Math.abs(cand.length() - len) > 2) continue;
+                if (cand.charAt(0) != k.charAt(0) && adjacency(cand.charAt(0), k.charAt(0)) > 0.65f
+                        && !(len > 1 && cand.length() > 1 && cand.charAt(1) == k.charAt(0))) continue;
+                float d = distance(k, cand, max);
+                if (d > max) continue;
+                sc.add(new float[]{d - freq[idx] * 1.2f + (enOnly != null && enOnly.get(idx) ? 0.3f : 0f), idx});
+            }
+        Collections.sort(sc, (a, b) -> Float.compare(a[0], b[0]));
+        Set<String> seen = new HashSet<>();
+        for (String o : out) seen.add(norm(o));
+        for (float[] f : sc) {
+            if (out.size() >= n) break;
+            int idx = (int) f[1];
+            if (seen.add(keys[idx])) out.add(words[idx]);
+        }
+        return out;
+    }
+
     private String split(String lw) {
         if (lw.length() < 6) return null;
         String best = null;

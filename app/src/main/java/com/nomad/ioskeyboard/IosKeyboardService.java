@@ -342,6 +342,16 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         return Character.isLetterOrDigit(c) || c == '\'' || c == '’' || c == '-';
     }
 
+    private String after(int n) {
+        InputConnection ic = ic();
+        if (ic == null) return "";
+        CharSequence s = ic.getTextAfterCursor(n, 0);
+        return s == null ? "" : s.toString();
+    }
+
+    private boolean tapFix;
+    private int tapBefore, tapAfter;
+
     private String currentWord() {
         String b = before(48);
         int i = b.length();
@@ -456,6 +466,32 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
             return;
         }
         gestureWord = null;
+        tapFix = false;
+        String af = after(48);
+        int te = 0;
+        while (te < af.length() && wordChar(af.charAt(te))) te++;
+        if (te > 0 && selStart == selEnd) {
+            final String full = word + af.substring(0, te);
+            final int nb = word.length(), na = te;
+            final int gen = sugGen;
+            keyboard.setSuggestions(new String[3], -1);
+            worker.execute(() -> {
+                List<String> alts = dict.isValid(full) ? new ArrayList<>() : dict.similar(full, 4);
+                alts.removeIf(x -> x.equalsIgnoreCase(full));
+                main.post(() -> {
+                    if (gen != sugGen) return;
+                    String[] show = new String[3];
+                    for (int i = 0; i < 3; i++) {
+                        sugValues[i] = i < alts.size() ? matchCase(full, alts.get(i)) : "";
+                        show[i] = sugValues[i];
+                    }
+                    tapFix = !alts.isEmpty();
+                    tapBefore = nb; tapAfter = na;
+                    keyboard.setSuggestions(show, tapFix ? 0 : -1);
+                });
+            });
+            return;
+        }
         if (word.isEmpty()) {
             List<String> p = nextWord ? dict.predict(previousWord(b + "x"), 3) : new ArrayList<>();
             boolean start = b.isEmpty() || b.endsWith("\n") || (Character.isWhitespace(b.charAt(b.length() - 1)) && startOfSentence(b));
@@ -767,6 +803,17 @@ public class IosKeyboardService extends InputMethodService implements KeyboardVi
         if (ic == null) return;
         String s = sugValues[i];
         if (s.isEmpty()) return;
+        if (tapFix) {
+            tapFix = false;
+            ic.beginBatchEdit();
+            ic.deleteSurroundingText(tapBefore, tapAfter);
+            ic.commitText(s, 1);
+            ic.endBatchEdit();
+            revertOriginal = null;
+            noCapAfter = s;
+            afterEdit();
+            return;
+        }
         if (i == emojiSlot) {
             ic.commitText(" " + s + " ", 1);
             emojiView.addRecent(s);

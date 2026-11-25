@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<spell-checker xmlns:android="http://schemas.android.com/apk/res/android"
+    android:label="@string/ime_name"
+    android:settingsActivity="com.nomad.ioskeyboard.SettingsActivity">
+    <subtype android:label="@string/subtype" android:subtypeLocale="fr_FR" />
+    <subtype android:label="@string/subtype" android:subtypeLocale="en_US" />
+</spell-checker>
